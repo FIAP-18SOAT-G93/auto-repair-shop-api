@@ -1,0 +1,20 @@
+# Linguagem ubíqua
+
+| Termo                   | Nome no código                                                 | Definição                                                                                                                       |
+| ----------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Ordem de Serviço (OS)   | `ServiceOrder`                                                 | Registro do atendimento de um veículo, do recebimento à entrega. Agregado raiz que controla itens, orçamento e status.          |
+| Status da OS            | `ServiceOrderStatus`                                           | Fase da OS: Recebida, Em diagnóstico, Aguardando aprovação, Em execução, Finalizada e Entregue.                                 |
+| Cliente                 | `Customer`                                                     | Pessoa física ou jurídica dona do veículo, identificada pelo CPF/CNPJ. Acompanha a OS e aprova ou rejeita o orçamento.          |
+| Atendente               | `Role: ATTENDANT`                                              | Funcionário que recebe o cliente, identifica o cliente e veículo, faz cadastros, abre a OS e registra a entrega.                |
+| Mecânico                | `Role: MECHANIC`                                               | Funcionário que faz o diagnóstico, inclui serviços e peças, executa o reparo, registra reparo adicional e finaliza a OS.        |
+| Gestor                  | `Role: MANAGER`                                                | Funcionário que mantém o catálogo de serviços e o estoque, registra entradas de estoque e acompanha o tempo médio de execução.  |
+| Autenticação do cliente | `AuthenticateCustomerUseCase`                                  | Validação do CPF/CNPJ no aplicativo mobile, libera a consulta das OS do próprio cliente e a aprovação ou rejeição do orçamento. |
+| Veículo                 | `Vehicle`                                                      | Veículo do cliente, identificado pela placa, com marca, modelo e ano.                                                           |
+| Serviço                 | `Service`                                                      | Serviço oferecido pela oficina, com preço e tempo estimado.                                                                     |
+| Peça/Insumo             | `Part`                                                         | Item controlado em estoque, do tipo peça (`PART`) ou insumo (`SUPPLY`), com preço e quantidade disponível.                      |
+| Baixa do estoque        | `Part.deduct()`, `DeductStockUseCase`                          | Redução da quantidade disponível quando a peça é adicionada à OS, ainda no diagnóstico. O estoque nunca fica negativo.          |
+| Estorno da baixa        | `Part.reverse()`, `ReverseStockUseCase`                        | Devolução ao estoque da quantidade baixada quando o cliente rejeita o orçamento.                                                |
+| Orçamento               | `Quote`                                                        | Soma dos itens da OS, gerada automaticamente ao fim do diagnóstico e enviada ao cliente.                                        |
+| Reparo adicional        | `ServiceOrder.registerAdditionalRepair()`                      | Necessidade descoberta durante a execução. Gera um novo orçamento e a OS volta para Aguardando aprovação.                       |
+| Tempo de execução       | `ServiceOrder.getExecutionTime()`, `AverageExecutionTimeQuery` | Intervalo entre Em execução e Finalizada. Base do tempo médio de execução acompanhado pelo gestor.                              |
+| Serviço de Notificação  | `NotificationGateway`                                          | Sistema externo que avisa o cliente sobre orçamento disponível e OS finalizada.                                                 |
