@@ -1,5 +1,7 @@
 # auto-repair-shop-api
 
+[![CI](https://github.com/FIAP-18SOAT-G93/auto-repair-shop-api/actions/workflows/ci.yml/badge.svg)](https://github.com/FIAP-18SOAT-G93/auto-repair-shop-api/actions/workflows/ci.yml)
+
 Back-end (MVP) de gestão de oficina mecânica — Tech Challenge da Fase 1 da pós-graduação FIAP SOAT.
 
 ## Objetivo
