@@ -66,7 +66,7 @@ describe('Quantity', () => {
       expect(Quantity.of(5).isGreaterThanOrEqual(Quantity.of(5))).toBe(true);
     });
 
-    it('não é maior ou igual quando um valor é maior que o outro', () => {
+    it('não é maior ou igual quando um valor é menor que o outro', () => {
       expect(Quantity.of(2).isGreaterThanOrEqual(Quantity.of(3))).toBe(false);
     });
 
