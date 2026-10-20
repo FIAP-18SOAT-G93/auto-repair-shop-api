@@ -31,6 +31,7 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npm run lint
+      - run: npm run typecheck
       - run: npm run format:check
       - run: npm run build
       - run: npm run test:cov
