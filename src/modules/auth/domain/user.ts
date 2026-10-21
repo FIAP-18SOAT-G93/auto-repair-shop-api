@@ -59,8 +59,12 @@ export class User extends AggregateRoot {
     return trimmed;
   }
 
+  static normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
   private static validateEmail(email: string): string {
-    const normalized = email.trim().toLowerCase();
+    const normalized = User.normalizeEmail(email);
     if (!EMAIL_PATTERN.test(normalized)) {
       throw new InvalidUserError(`E-mail inválido: ${email}`);
     }
