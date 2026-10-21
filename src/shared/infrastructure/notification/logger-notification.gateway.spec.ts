@@ -32,6 +32,6 @@ describe('LoggerNotificationGateway', () => {
       serviceOrderId: 'order-1',
     });
 
-    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('1'));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('order-1'));
   });
 });
