@@ -1,5 +1,6 @@
 import { ArgumentsHost, HttpStatus } from '@nestjs/common';
 import {
+  AuthenticationError,
   ConflictError,
   DomainError,
   NotFoundError,
@@ -11,6 +12,7 @@ class InvalidThingError extends ValidationError {}
 class ThingNotFoundError extends NotFoundError {}
 class ThingConflictError extends ConflictError {}
 class UncategorizedError extends DomainError {}
+class InvalidCredentialsTestError extends AuthenticationError {}
 
 function createHost() {
   const response = { status: vi.fn().mockReturnThis(), json: vi.fn() };
@@ -28,6 +30,10 @@ describe('DomainExceptionFilter', () => {
     [new ThingNotFoundError('não encontrado'), HttpStatus.NOT_FOUND],
     [new ThingConflictError('em conflito'), HttpStatus.CONFLICT],
     [new UncategorizedError('sem categoria'), HttpStatus.INTERNAL_SERVER_ERROR],
+    [
+      new InvalidCredentialsTestError('credenciais ausentes/inválidas'),
+      HttpStatus.UNAUTHORIZED,
+    ],
   ])('converte %s no status %i', (error, status) => {
     const { host, response } = createHost();
 

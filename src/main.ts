@@ -14,6 +14,7 @@ async function bootstrap() {
       'Gestão de ordens de serviço, clientes, veículos, serviços e estoque',
     )
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);

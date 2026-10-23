@@ -13,3 +13,6 @@ export abstract class NotFoundError extends DomainError {}
 
 /** Regra de negócio em conflito. Erro 409. */
 export abstract class ConflictError extends DomainError {}
+
+/** Credenciais ausentes ou inválidas . Erro 401. */
+export abstract class AuthenticationError extends DomainError {}

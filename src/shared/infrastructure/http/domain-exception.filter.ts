@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import {
+  AuthenticationError,
   ConflictError,
   DomainError,
   NotFoundError,
@@ -29,6 +30,7 @@ export class DomainExceptionFilter implements ExceptionFilter<DomainError> {
     if (error instanceof ValidationError) return HttpStatus.BAD_REQUEST;
     if (error instanceof NotFoundError) return HttpStatus.NOT_FOUND;
     if (error instanceof ConflictError) return HttpStatus.CONFLICT;
+    if (error instanceof AuthenticationError) return HttpStatus.UNAUTHORIZED;
     return HttpStatus.INTERNAL_SERVER_ERROR;
   }
 }

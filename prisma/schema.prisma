@@ -8,3 +8,23 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  ATTENDANT
+  MECHANIC
+  MANAGER
+
+  @@map("user_role")
+}
+
+model User {
+  id           String   @id @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
