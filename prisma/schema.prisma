@@ -3,6 +3,7 @@ generator client {
   output              = "../src/generated/prisma"
   moduleFormat        = "esm"
   importFileExtension = "js"
+  previewFeatures     = ["partialIndexes"]
 }
 
 datasource db {
@@ -27,4 +28,19 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("users")
+}
+
+model Customer {
+  id        String   @id @db.Uuid
+  name      String
+  document  String    @db.VarChar(14)
+  email     String?
+  phone     String?   @db.VarChar(11)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Documento único só entre os clientes ativos: um cliente removido libera o CPF/CNPJ.
+  @@unique([document], where: { deletedAt: null })
+  @@map("customers")
 }
