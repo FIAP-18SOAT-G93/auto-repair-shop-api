@@ -1,12 +1,16 @@
 import {
   CustomerHasOpenServiceOrdersError,
+  CustomerHasVehiclesError,
   CustomerNotFoundError,
   DocumentAlreadyRegisteredError,
 } from '../domain/customer.errors.js';
 import { InvalidDocumentError } from '../domain/document.js';
+import { LicensePlate } from '../domain/license-plate.js';
+import { Vehicle } from '../domain/vehicle.js';
 import {
   FakeServiceOrderChecker,
   InMemoryCustomerRepository,
+  InMemoryVehicleRepository,
 } from '../testing/fakes.js';
 import { CreateCustomerUseCase } from './create-customer.use-case.js';
 import { DeleteCustomerUseCase } from './delete-customer.use-case.js';
@@ -24,16 +28,18 @@ const input = {
 
 function setup() {
   const customers = new InMemoryCustomerRepository();
+  const vehicles = new InMemoryVehicleRepository();
   const checker = new FakeServiceOrderChecker();
   return {
     customers,
+    vehicles,
     checker,
     create: new CreateCustomerUseCase(customers),
     get: new GetCustomerUseCase(customers),
     findByDocument: new FindCustomerByDocumentUseCase(customers),
     list: new ListCustomersUseCase(customers),
     update: new UpdateCustomerUseCase(customers),
-    remove: new DeleteCustomerUseCase(customers, checker),
+    remove: new DeleteCustomerUseCase(customers, vehicles, checker),
   };
 }
 
@@ -184,6 +190,28 @@ describe('Casos de uso de clientes', () => {
       const recreated = await create.execute(input);
 
       expect(recreated.id).not.toBe(id);
+    });
+
+    it('bloqueia a remoção de cliente com veículos ativos, sem alterar nada', async () => {
+      const { create, vehicles, remove, customers } = setup();
+      const { id } = await create.execute(input);
+      await vehicles.save(
+        Vehicle.create(
+          {
+            customerId: id,
+            plate: LicensePlate.create('BRA2E19'),
+            brand: 'Volkswagen',
+            model: 'Gol',
+            year: 2020,
+          },
+          new Date(),
+        ),
+      );
+
+      await expect(remove.execute(id)).rejects.toThrow(
+        CustomerHasVehiclesError,
+      );
+      expect(await customers.findById(id)).not.toBeNull();
     });
   });
 });

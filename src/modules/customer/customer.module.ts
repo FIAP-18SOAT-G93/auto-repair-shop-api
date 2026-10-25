@@ -8,8 +8,10 @@ import { ListCustomersUseCase } from './application/list-customers.use-case.js';
 import { ServiceOrderChecker } from './application/service-order-checker.js';
 import { UpdateCustomerUseCase } from './application/update-customer.use-case.js';
 import { CustomerRepository } from './domain/customer.repository.js';
+import { VehicleRepository } from './domain/vehicle.repository.js';
 import { NoServiceOrdersChecker } from './infrastructure/no-service-orders.checker.js';
 import { PrismaCustomerRepository } from './infrastructure/prisma-customer.repository.js';
+import { PrismaVehicleRepository } from './infrastructure/prisma-vehicle.repository.js';
 import { CustomersController } from './presentation/customers.controller.js';
 
 @Module({
@@ -23,6 +25,7 @@ import { CustomersController } from './presentation/customers.controller.js';
     UpdateCustomerUseCase,
     DeleteCustomerUseCase,
     { provide: CustomerRepository, useClass: PrismaCustomerRepository },
+    { provide: VehicleRepository, useClass: PrismaVehicleRepository },
     { provide: ServiceOrderChecker, useClass: NoServiceOrdersChecker },
   ],
 })
