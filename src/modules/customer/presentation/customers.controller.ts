@@ -108,15 +108,16 @@ export class CustomersController {
   @Roles(Role.MANAGER)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary:
-      'Remove um cliente sem OS aberta (soft delete: o histórico é mantido)',
+    summary: 'Remove um cliente sem OS aberta e sem veículos (soft delete)',
   })
   @ApiNoContentResponse({ description: 'Cliente removido' })
   @ApiNotFoundResponse({ description: 'Cliente não encontrado' })
   @ApiForbiddenResponse({
     description: 'Somente o gestor pode remover clientes',
   })
-  @ApiConflictResponse({ description: 'Cliente com ordens de serviço abertas' })
+  @ApiConflictResponse({
+    description: 'Cliente com OS aberta ou com veículos cadastrados',
+  })
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.deleteCustomer.execute(id);
   }
