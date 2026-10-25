@@ -29,3 +29,9 @@ export class CustomerAlreadyDeletedError extends ConflictError {
     super('O cliente já foi removido');
   }
 }
+
+export class CustomerHasVehiclesError extends ConflictError {
+  constructor() {
+    super('O cliente possui veículos cadastrados e não pode ser removido');
+  }
+}
