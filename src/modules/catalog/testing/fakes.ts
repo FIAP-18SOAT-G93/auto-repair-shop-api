@@ -1,3 +1,11 @@
+import type { Quantity } from '../../../shared/domain/quantity.js';
+import { PartNotFoundError } from '../domain/part.errors.js';
+import { Part } from '../domain/part.js';
+import {
+  type PartFilter,
+  type PartPage,
+  PartRepository,
+} from '../domain/part.repository.js';
 import { ServiceNotFoundError } from '../domain/service.errors.js';
 import { Service } from '../domain/service.js';
 import {
@@ -5,10 +13,6 @@ import {
   ServiceRepository,
 } from '../domain/service.repository.js';
 
-/**
- * Guarda cópias, como um banco: alterar o agregado sem chamar save()
- * não muda o que está "gravado".
- */
 export class InMemoryServiceRepository implements ServiceRepository {
   readonly services = new Map<string, Service>();
 
@@ -41,5 +45,60 @@ function copy(service: Service): Service {
     description: service.description,
     price: service.price,
     estimatedMinutes: service.estimatedMinutes,
+  });
+}
+
+export class InMemoryPartRepository implements PartRepository {
+  readonly parts = new Map<string, Part>();
+
+  async save(part: Part): Promise<void> {
+    const stored = this.parts.get(part.id);
+    this.parts.set(part.id, copyPart(part, stored?.quantity));
+  }
+
+  async findById(id: string): Promise<Part | null> {
+    const part = this.parts.get(id);
+    return part ? copyPart(part) : null;
+  }
+
+  async list(
+    filter: PartFilter,
+    page: number,
+    pageSize: number,
+  ): Promise<PartPage> {
+    const matching = [...this.parts.values()]
+      .filter((p) => !filter.onlyOutOfStock || p.isOutOfStock)
+      .map((p) => copyPart(p));
+    const start = (page - 1) * pageSize;
+    return {
+      items: matching.slice(start, start + pageSize),
+      total: matching.length,
+    };
+  }
+
+  async delete(id: string): Promise<void> {
+    if (!this.parts.delete(id)) throw new PartNotFoundError();
+  }
+
+  async deductStock(id: string, amount: Quantity): Promise<boolean> {
+    const stored = this.parts.get(id);
+    if (!stored?.quantity.isGreaterThanOrEqual(amount)) return false;
+    this.parts.set(id, copyPart(stored, stored.quantity.subtract(amount)));
+    return true;
+  }
+
+  async addStock(id: string, amount: Quantity): Promise<void> {
+    const stored = this.parts.get(id);
+    if (!stored) throw new PartNotFoundError();
+    this.parts.set(id, copyPart(stored, stored.quantity.add(amount)));
+  }
+}
+
+function copyPart(part: Part, quantity = part.quantity): Part {
+  return Part.restore(part.id, {
+    name: part.name,
+    type: part.type,
+    price: part.price,
+    quantity,
   });
 }
