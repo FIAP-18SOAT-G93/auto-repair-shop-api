@@ -5,12 +5,14 @@ import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { DomainExceptionFilter } from './shared/infrastructure/http/domain-exception.filter.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CustomerModule } from './modules/customer/customer.module.js';
+import { CatalogModule } from './modules/catalog/catalog.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     AuthModule,
     CustomerModule,
+    CatalogModule,
   ],
   controllers: [],
   providers: [
