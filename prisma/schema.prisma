@@ -62,3 +62,15 @@ model Vehicle {
   @@index([customerId])
   @@map("vehicles")
 }
+
+model Service {
+  id               String   @id @db.Uuid
+  name             String   @db.VarChar(100)
+  description      String?
+  priceCents       Int      @map("price_cents")
+  estimatedMinutes Int      @map("estimated_minutes")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("services")
+}
