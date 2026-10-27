@@ -74,3 +74,22 @@ model Service {
 
   @@map("services")
 }
+
+enum PartType {
+  PART
+  SUPPLY
+
+  @@map("part_type")
+}
+
+model Part {
+  id         String   @id @db.Uuid
+  name       String   @db.VarChar(100)
+  type       PartType
+  priceCents Int      @map("price_cents")
+  quantity   Int
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("parts")
+}
