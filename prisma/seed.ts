@@ -67,6 +67,52 @@ const demoServices = [
   },
 ];
 
+// Peças e insumos de demonstração.
+const demoParts = [
+  {
+    id: '7589ceda-f324-4e71-8eac-aedd171f08c2',
+    name: 'Filtro de óleo',
+    type: 'PART',
+    priceCents: 3590,
+    quantity: 20,
+  },
+  {
+    id: '20d369bb-cef4-4738-ad63-2d351df8f120',
+    name: 'Pastilha de freio dianteira (jogo)',
+    type: 'PART',
+    priceCents: 14990,
+    quantity: 8,
+  },
+  {
+    id: '9a89122e-3041-4196-82ca-2c3e37a893d8',
+    name: 'Disco de freio dianteiro',
+    type: 'PART',
+    priceCents: 21900,
+    quantity: 0,
+  },
+  {
+    id: '553f33f5-60ec-4d50-b248-f6f4fbed9a6e',
+    name: 'Óleo de motor 5W30 (1 L)',
+    type: 'SUPPLY',
+    priceCents: 4500,
+    quantity: 40,
+  },
+  {
+    id: '470b5fe3-903f-4321-8d98-0f71cdbb45f6',
+    name: 'Fluido de freio DOT 4 (500 mL)',
+    type: 'SUPPLY',
+    priceCents: 3200,
+    quantity: 12,
+  },
+  {
+    id: '83daa856-df95-42a6-9c7f-d99f7995f627',
+    name: 'Aditivo de radiador (1 L)',
+    type: 'SUPPLY',
+    priceCents: 2800,
+    quantity: 0,
+  },
+] as const;
+
 async function main(): Promise<void> {
   for (const user of demoUsers) {
     await prisma.user.upsert({
@@ -89,6 +135,15 @@ async function main(): Promise<void> {
     });
   }
   console.log(`Seed: ${demoServices.length} serviços de catálogo prontos.`);
+
+  for (const part of demoParts) {
+    await prisma.part.upsert({
+      where: { id: part.id },
+      update: {},
+      create: part,
+    });
+  }
+  console.log(`Seed: ${demoParts.length} peças e insumos em estoque prontos.`);
 }
 
 try {
