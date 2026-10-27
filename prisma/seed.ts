@@ -78,7 +78,7 @@ const demoParts = [
   },
   {
     id: '20d369bb-cef4-4738-ad63-2d351df8f120',
-    name: 'Pastilha de freio dianteira (jogo)',
+    name: 'Pastilha de freio dianteira',
     type: 'PART',
     priceCents: 14990,
     quantity: 8,
