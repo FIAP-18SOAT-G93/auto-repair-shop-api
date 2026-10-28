@@ -212,12 +212,14 @@ export class ServiceOrder extends AggregateRoot {
     );
     if (items.length === 0) throw new ServiceOrderWithoutItemsError();
 
-    const quote = Quote.generate(version, QuoteCalculator.calculate(items), now);
+    const quote = Quote.generate(
+      version,
+      QuoteCalculator.calculate(items),
+      now,
+    );
     this.props = { ...this.props, quotes: [...this.props.quotes, quote] };
     this.moveTo(ServiceOrderStatus.AWAITING_APPROVAL, now);
-    this.addDomainEvent(
-      new QuoteGenerated(this.id, version, quote.total, now),
-    );
+    this.addDomainEvent(new QuoteGenerated(this.id, version, quote.total, now));
   }
 
   private pushServices(items: readonly NewServiceItem[]): void {
@@ -255,7 +257,10 @@ export class ServiceOrder extends AggregateRoot {
   }
 
   private moveTo(status: ServiceOrderStatus, now: Date): void {
-    this.props = { ...this.props, history: this.props.history.record(status, now) };
+    this.props = {
+      ...this.props,
+      history: this.props.history.record(status, now),
+    };
   }
 
   private assertStatus(expected: ServiceOrderStatus, action: string): void {
