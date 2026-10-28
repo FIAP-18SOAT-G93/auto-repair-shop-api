@@ -98,9 +98,7 @@ describe('PrismaPartRepository (integração)', () => {
     });
 
     it('devolve false para peça inexistente', async () => {
-      expect(await parts.deductStock(randomUUID(), Quantity.of(1))).toBe(
-        false,
-      );
+      expect(await parts.deductStock(randomUUID(), Quantity.of(1))).toBe(false);
     });
 
     it('baixas simultâneas nunca consomem mais que o saldo', async () => {

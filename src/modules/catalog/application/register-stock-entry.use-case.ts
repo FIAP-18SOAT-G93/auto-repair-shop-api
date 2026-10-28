@@ -9,10 +9,7 @@ import { type PartOutput, toPartOutput } from './part.output.js';
 export class RegisterStockEntryUseCase {
   constructor(private readonly parts: PartRepository) {}
 
-  async execute({
-    partId,
-    quantity,
-  }: StockMovementInput): Promise<PartOutput> {
+  async execute({ partId, quantity }: StockMovementInput): Promise<PartOutput> {
     const amount = Quantity.of(quantity);
     const part = await this.parts.findById(partId);
     if (!part) throw new PartNotFoundError();
