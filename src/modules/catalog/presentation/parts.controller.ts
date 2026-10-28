@@ -81,7 +81,11 @@ export class PartsController {
   listUnavailable(
     @Query() query: PaginationQueryDto,
   ): Promise<ListPartsOutput> {
-    return this.listParts.execute({ ...query, onlyOutOfStock: true });
+    return this.listParts.execute({
+      page: query.page,
+      pageSize: query.pageSize,
+      onlyOutOfStock: true,
+    });
   }
 
   @Get(':id')
