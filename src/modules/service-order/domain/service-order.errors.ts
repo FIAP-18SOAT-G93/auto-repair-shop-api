@@ -11,6 +11,18 @@ export class InvalidStatusTransitionError extends ConflictError {
   }
 }
 
+export class ServiceOrderActionNotAllowedError extends ConflictError {
+  constructor(action: string, status: string) {
+    super(`Não é possível ${action}: a OS está "${status}"`);
+  }
+}
+
+export class ServiceOrderWithoutItemsError extends ConflictError {
+  constructor() {
+    super('Inclua ao menos um serviço ou peça antes de gerar o orçamento');
+  }
+}
+
 export class QuoteAlreadyDecidedError extends ConflictError {
   constructor() {
     super('O orçamento já foi aprovado ou rejeitado');
