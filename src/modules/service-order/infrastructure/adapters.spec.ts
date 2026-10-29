@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Money } from '../../../shared/domain/money.js';
 import { Quantity } from '../../../shared/domain/quantity.js';
 import { DeductStockUseCase } from '../../catalog/application/deduct-stock.use-case.js';
@@ -142,6 +143,20 @@ describe('Adaptadores do módulo de OS', () => {
       await stock.reverse(part.id, Quantity.of(2));
 
       expect((await parts.findById(part.id))?.quantity.value).toBe(5);
+    });
+
+    it('ignora o estorno de uma peça removida do catálogo', async () => {
+      const { parts, part, stock } = await setup(5);
+      await parts.delete(part.id);
+      const warnSpy = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
+
+      await expect(
+        stock.reverse(part.id, Quantity.of(2)),
+      ).resolves.toBeUndefined();
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining(part.id));
+      warnSpy.mockRestore();
     });
 
     it('propaga a falta de saldo', async () => {

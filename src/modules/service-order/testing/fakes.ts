@@ -1,4 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import type {
+  NotificationGateway,
+  QuoteAvailableNotification,
+  ServiceOrderFinishedNotification,
+} from '../../../shared/application/notification.gateway.js';
 import type { UnitOfWork } from '../../../shared/application/unit-of-work.js';
 import type { Money } from '../../../shared/domain/money.js';
 import type { Quantity } from '../../../shared/domain/quantity.js';
@@ -146,7 +151,20 @@ export class FakePartStock implements PartStock {
 
   async reverse(partId: string, quantity: Quantity): Promise<void> {
     const part = this.parts.get(partId);
-    if (!part) throw new PartNotFoundError();
+    if (!part) return;
     this.parts.set(partId, { ...part, quantity: part.quantity.add(quantity) });
+  }
+}
+
+export class FakeNotificationGateway implements NotificationGateway {
+  readonly quotesAvailable: QuoteAvailableNotification[] = [];
+  readonly ordersFinished: ServiceOrderFinishedNotification[] = [];
+
+  async quoteAvailable(notification: QuoteAvailableNotification) {
+    this.quotesAvailable.push(notification);
+  }
+
+  async serviceOrderFinished(notification: ServiceOrderFinishedNotification) {
+    this.ordersFinished.push(notification);
   }
 }
