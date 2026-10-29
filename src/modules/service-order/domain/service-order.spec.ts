@@ -156,6 +156,13 @@ describe('ServiceOrder', () => {
       );
     });
 
+    it('informa se aceita itens, antes de qualquer efeito colateral', () => {
+      expect(() => inDiagnosis().assertAcceptsItems()).not.toThrow();
+      expect(() => awaitingApproval().assertAcceptsItems()).toThrow(
+        ServiceOrderActionNotAllowedError,
+      );
+    });
+
     it('explica a ação recusada com o status', () => {
       expect(() => opened().addService(alignment)).toThrow(
         'Não é possível incluir serviços: a OS está "Recebida"',
