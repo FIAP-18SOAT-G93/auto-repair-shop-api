@@ -2,6 +2,7 @@ import { Money } from '../../../shared/domain/money.js';
 import { Quantity } from '../../../shared/domain/quantity.js';
 import {
   InvalidServiceOrderError,
+  QuoteVersionMismatchError,
   ServiceOrderActionNotAllowedError,
   ServiceOrderWithoutItemsError,
 } from './service-order.errors.js';
@@ -64,7 +65,7 @@ function awaitingApproval(): ServiceOrder {
 
 function inExecution(): ServiceOrder {
   const order = awaitingApproval();
-  order.approve(at('11:00'));
+  order.approve(1, at('11:00'));
   return order;
 }
 
@@ -209,7 +210,7 @@ describe('ServiceOrder', () => {
       const order = awaitingApproval();
       order.pullDomainEvents();
 
-      order.approve(at('11:00'));
+      order.approve(1, at('11:00'));
 
       expect(order.status).toBe('IN_EXECUTION');
       expect(order.currentQuote?.decision).toBe('APPROVED');
@@ -221,9 +222,18 @@ describe('ServiceOrder', () => {
       ['Em diagnóstico', inDiagnosis],
       ['Em execução', inExecution],
     ])('não aprova com a OS %s', (_status, build) => {
-      expect(() => build().approve(at('12:00'))).toThrow(
+      expect(() => build().approve(1, at('12:00'))).toThrow(
         ServiceOrderActionNotAllowedError,
       );
+    });
+
+    it('recusa aprovar uma versão que não é a do orçamento pendente', () => {
+      const order = awaitingApproval();
+
+      expect(() => order.approve(2, at('11:00'))).toThrow(
+        'O orçamento pendente é a versão 1, consulte-a antes de decidir',
+      );
+      expect(order.status).toBe('AWAITING_APPROVAL');
     });
   });
 
@@ -232,7 +242,7 @@ describe('ServiceOrder', () => {
       const order = awaitingApproval();
       order.pullDomainEvents();
 
-      order.reject(at('11:00'), 'Valor acima do esperado');
+      order.reject(1, at('11:00'), 'Valor acima do esperado');
 
       expect(order.status).toBe('FINISHED');
       expect(order.currentQuote?.rejectionReason).toBe(
@@ -249,7 +259,7 @@ describe('ServiceOrder', () => {
     });
 
     it('não rejeita uma OS em execução, mesmo sendo Em execução → Finalizada uma transição válida', () => {
-      expect(() => inExecution().reject(at('12:00'))).toThrow(
+      expect(() => inExecution().reject(1, at('12:00'))).toThrow(
         ServiceOrderActionNotAllowedError,
       );
     });
@@ -281,17 +291,30 @@ describe('ServiceOrder', () => {
     it('aprovar o reparo adicional retoma a execução e soma ao total', () => {
       const order = withAdditionalRepair();
 
-      order.approve(at('13:00'));
+      order.approve(2, at('13:00'));
 
       expect(order.status).toBe('IN_EXECUTION');
       expect(order.approvedTotal.toDecimal()).toBe(601.7);
+    });
+
+    it('uma decisão repetida sobre a versão 1 não decide a versão 2', () => {
+      const order = withAdditionalRepair();
+
+      expect(() => order.approve(1, at('13:00'))).toThrow(
+        QuoteVersionMismatchError,
+      );
+      expect(() => order.reject(1, at('13:00'))).toThrow(
+        QuoteVersionMismatchError,
+      );
+      expect(order.status).toBe('AWAITING_APPROVAL');
+      expect(order.currentQuote?.isPending).toBe(true);
     });
 
     it('rejeitar o reparo adicional estorna só as peças dele', () => {
       const order = withAdditionalRepair();
       order.pullDomainEvents();
 
-      order.reject(at('13:00'));
+      order.reject(2, at('13:00'));
 
       const [event] = order.pullDomainEvents() as QuoteRejected[];
       expect(event?.partsToReverse).toEqual([

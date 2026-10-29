@@ -45,7 +45,7 @@ describe('PrismaServiceOrderRepository (integração)', () => {
       quantity: Quantity.of(2),
     });
     order.concludeDiagnosis(at('10:00'));
-    order.approve(at('11:00'));
+    order.approve(1, at('11:00'));
   }
 
   function deliver(order: ServiceOrder): void {
