@@ -36,6 +36,12 @@ export class ServiceOrderNotFoundError extends NotFoundError {
   }
 }
 
+export class VehicleOwnedByAnotherCustomerError extends ConflictError {
+  constructor() {
+    super('A placa informada pertence a um veículo de outro cliente');
+  }
+}
+
 export class VehicleHasOpenServiceOrderError extends ConflictError {
   constructor() {
     super('O veículo já possui uma ordem de serviço aberta');
