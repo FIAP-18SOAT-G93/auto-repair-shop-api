@@ -1,5 +1,6 @@
 import {
   ConflictError,
+  NotFoundError,
   ValidationError,
 } from '../../../shared/domain/domain-error.js';
 
@@ -26,5 +27,17 @@ export class ServiceOrderWithoutItemsError extends ConflictError {
 export class QuoteAlreadyDecidedError extends ConflictError {
   constructor() {
     super('O orçamento já foi aprovado ou rejeitado');
+  }
+}
+
+export class ServiceOrderNotFoundError extends NotFoundError {
+  constructor() {
+    super('Ordem de serviço não encontrada');
+  }
+}
+
+export class VehicleHasOpenServiceOrderError extends ConflictError {
+  constructor() {
+    super('O veículo já possui uma ordem de serviço aberta');
   }
 }
