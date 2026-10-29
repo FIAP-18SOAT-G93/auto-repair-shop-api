@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ConfigModule } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
+import { UnitOfWork } from '../../../shared/application/unit-of-work.js';
 import { Money } from '../../../shared/domain/money.js';
 import { Quantity } from '../../../shared/domain/quantity.js';
 import { validateEnv } from '../../../shared/infrastructure/config/env.validation.js';
@@ -115,6 +116,17 @@ describe('PrismaServiceOrderRepository (integração)', () => {
     expect(found?.serviceItems).toHaveLength(1);
     expect(found?.quotes).toHaveLength(1);
     expect(found?.history.entries).toHaveLength(4);
+  });
+
+  it('lê a OS travando a linha dentro de uma transação', async () => {
+    const order = await newOrder();
+    await orders.save(order);
+
+    const locked = await moduleRef
+      .get(UnitOfWork)
+      .run(() => orders.findByIdForUpdate(order.id));
+
+    expect(locked?.id).toBe(order.id);
   });
 
   it('responde null para id inexistente', async () => {

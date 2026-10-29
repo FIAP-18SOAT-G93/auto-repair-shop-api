@@ -55,6 +55,13 @@ export class PrismaServiceOrderRepository implements ServiceOrderRepository {
     return record ? toDomain(record) : null;
   }
 
+  async findByIdForUpdate(id: string): Promise<ServiceOrder | null> {
+    await this.host.client.$queryRaw`
+      SELECT "id" FROM "service_orders" WHERE "id" = ${id}::uuid FOR UPDATE
+    `;
+    return this.findById(id);
+  }
+
   async findOpenByVehicle(vehicleId: string): Promise<ServiceOrder | null> {
     const record = await this.host.client.serviceOrder.findFirst({
       where: { vehicleId, ...OPEN },
