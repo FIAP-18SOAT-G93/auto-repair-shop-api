@@ -93,3 +93,99 @@ model Part {
 
   @@map("parts")
 }
+
+enum ServiceOrderStatus {
+  RECEIVED
+  IN_DIAGNOSIS
+  AWAITING_APPROVAL
+  IN_EXECUTION
+  FINISHED
+  DELIVERED
+
+  @@map("service_order_status")
+}
+
+enum QuoteDecision {
+  APPROVED
+  REJECTED
+
+  @@map("quote_decision")
+}
+
+model ServiceOrder {
+  id          String             @id @db.Uuid
+  number      Int                @unique @default(autoincrement())
+  customerId  String             @map("customer_id") @db.Uuid
+  vehicleId   String             @map("vehicle_id") @db.Uuid
+  status      ServiceOrderStatus
+  deliveredAt DateTime?          @map("delivered_at")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  serviceItems  ServiceOrderServiceItem[]
+  partItems     ServiceOrderPartItem[]
+  quotes        ServiceOrderQuote[]
+  statusHistory ServiceOrderStatusChange[]
+
+  @@unique([vehicleId], where: { deliveredAt: null })
+  @@index([customerId])
+  @@index([status])
+  @@map("service_orders")
+}
+
+model ServiceOrderServiceItem {
+  serviceOrderId String @map("service_order_id") @db.Uuid
+  position       Int
+  serviceId      String @map("service_id") @db.Uuid
+  name           String @db.VarChar(100)
+  priceCents     Int    @map("price_cents")
+  quoteVersion   Int    @map("quote_version")
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@id([serviceOrderId, position])
+  @@map("service_order_service_items")
+}
+
+model ServiceOrderPartItem {
+  serviceOrderId String @map("service_order_id") @db.Uuid
+  position       Int
+  partId         String @map("part_id") @db.Uuid
+  name           String @db.VarChar(100)
+  unitPriceCents Int    @map("unit_price_cents")
+  quantity       Int
+  quoteVersion   Int    @map("quote_version")
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@id([serviceOrderId, position])
+  @@map("service_order_part_items")
+}
+
+model ServiceOrderQuote {
+  serviceOrderId  String         @map("service_order_id") @db.Uuid
+  version         Int
+  totalCents      Int            @map("total_cents")
+  generatedAt     DateTime       @map("generated_at")
+  decision        QuoteDecision?
+  decidedAt       DateTime?      @map("decided_at")
+  rejectionReason String?        @map("rejection_reason")
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@id([serviceOrderId, version])
+  @@map("service_order_quotes")
+}
+
+model ServiceOrderStatusChange {
+  serviceOrderId String              @map("service_order_id") @db.Uuid
+  position       Int
+  fromStatus     ServiceOrderStatus? @map("from_status")
+  toStatus       ServiceOrderStatus  @map("to_status")
+  changedAt      DateTime            @map("changed_at")
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@id([serviceOrderId, position])
+  @@map("service_order_status_history")
+}
