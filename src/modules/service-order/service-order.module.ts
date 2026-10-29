@@ -13,6 +13,7 @@ import { StartDiagnosisUseCase } from './application/start-diagnosis.use-case.js
 import { CustomerModuleDirectory } from './infrastructure/customer-directory.adapter.js';
 import { CatalogModulePartStock } from './infrastructure/part-stock.adapter.js';
 import { CatalogModuleServiceCatalog } from './infrastructure/service-catalog.adapter.js';
+import { ServiceOrdersController } from './presentation/service-orders.controller.js';
 import { ServiceOrderPersistenceModule } from './service-order-persistence.module.js';
 
 @Module({
@@ -22,6 +23,7 @@ import { ServiceOrderPersistenceModule } from './service-order-persistence.modul
     CustomerModule,
     CatalogModule,
   ],
+  controllers: [ServiceOrdersController],
   providers: [
     OpenServiceOrderUseCase,
     GetServiceOrderUseCase,
