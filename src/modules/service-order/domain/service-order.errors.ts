@@ -30,6 +30,14 @@ export class QuoteAlreadyDecidedError extends ConflictError {
   }
 }
 
+export class QuoteVersionMismatchError extends ConflictError {
+  constructor(pendingVersion: number) {
+    super(
+      `O orçamento pendente é a versão ${pendingVersion}, consulte-a antes de decidir`,
+    );
+  }
+}
+
 export class ServiceOrderNotFoundError extends NotFoundError {
   constructor() {
     super('Ordem de serviço não encontrada');

@@ -12,6 +12,7 @@ import {
 } from './service-order-status.js';
 import {
   InvalidServiceOrderError,
+  QuoteVersionMismatchError,
   ServiceOrderActionNotAllowedError,
   ServiceOrderWithoutItemsError,
 } from './service-order.errors.js';
@@ -112,15 +113,15 @@ export class ServiceOrder extends AggregateRoot {
     this.generateQuote(now);
   }
 
-  approve(now: Date): void {
-    const quote = this.pendingQuoteFor('aprovar o orçamento');
+  approve(version: number, now: Date): void {
+    const quote = this.pendingQuoteFor(version, 'aprovar o orçamento');
     this.replaceLatestQuote(quote.approve(now));
     this.moveTo(ServiceOrderStatus.IN_EXECUTION, now);
     this.addDomainEvent(new QuoteApproved(this.id, quote.version, now));
   }
 
-  reject(now: Date, reason?: string | null): void {
-    const quote = this.pendingQuoteFor('rejeitar o orçamento');
+  reject(version: number, now: Date, reason?: string | null): void {
+    const quote = this.pendingQuoteFor(version, 'rejeitar o orçamento');
     const rejected = quote.reject(now, reason);
     this.replaceLatestQuote(rejected);
     this.moveTo(ServiceOrderStatus.FINISHED, now);
@@ -265,9 +266,13 @@ export class ServiceOrder extends AggregateRoot {
     };
   }
 
-  private pendingQuoteFor(action: string): Quote {
+  private pendingQuoteFor(version: number, action: string): Quote {
     this.assertStatus(ServiceOrderStatus.AWAITING_APPROVAL, action);
-    return this.currentQuote as Quote;
+    const quote = this.currentQuote as Quote;
+    if (quote.version !== version) {
+      throw new QuoteVersionMismatchError(quote.version);
+    }
+    return quote;
   }
 
   private replaceLatestQuote(quote: Quote): void {
