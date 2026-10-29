@@ -34,6 +34,7 @@ export interface AdditionalRepairItems {
 }
 
 export interface ServiceOrderProps {
+  number: number;
   customerId: string;
   vehicleId: string;
   history: StatusHistory;
@@ -51,10 +52,16 @@ export class ServiceOrder extends AggregateRoot {
   }
 
   static open(
-    input: { customerId: string; vehicleId: string },
+    input: { number: number; customerId: string; vehicleId: string },
     now: Date,
   ): ServiceOrder {
+    if (!Number.isInteger(input.number) || input.number < 1) {
+      throw new InvalidServiceOrderError(
+        'O número da OS deve ser um inteiro a partir de 1',
+      );
+    }
     const order = new ServiceOrder(randomUUID(), {
+      number: input.number,
       customerId: input.customerId,
       vehicleId: input.vehicleId,
       history: StatusHistory.start(now),
@@ -63,7 +70,13 @@ export class ServiceOrder extends AggregateRoot {
       quotes: [],
     });
     order.addDomainEvent(
-      new ServiceOrderOpened(order.id, input.customerId, input.vehicleId, now),
+      new ServiceOrderOpened(
+        order.id,
+        input.number,
+        input.customerId,
+        input.vehicleId,
+        now,
+      ),
     );
     return order;
   }
@@ -153,6 +166,10 @@ export class ServiceOrder extends AggregateRoot {
 
   getExecutionTime(): number | null {
     return this.props.history.executionTimeMs();
+  }
+
+  get number(): number {
+    return this.props.number;
   }
 
   get customerId(): string {
