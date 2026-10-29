@@ -90,6 +90,10 @@ export class ServiceOrder extends AggregateRoot {
     this.moveTo(ServiceOrderStatus.IN_DIAGNOSIS, now);
   }
 
+  assertAcceptsItems(): void {
+    this.assertStatus(ServiceOrderStatus.IN_DIAGNOSIS, 'incluir itens');
+  }
+
   addService(item: NewServiceItem): void {
     this.assertStatus(ServiceOrderStatus.IN_DIAGNOSIS, 'incluir serviços');
     this.pushServices([item]);
