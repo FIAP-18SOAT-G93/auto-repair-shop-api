@@ -44,7 +44,7 @@ const brakeFluid = {
 
 const opened = () =>
   ServiceOrder.open(
-    { customerId: 'customer-1', vehicleId: 'vehicle-1' },
+    { number: 1042, customerId: 'customer-1', vehicleId: 'vehicle-1' },
     at('08:00'),
   );
 
@@ -83,6 +83,7 @@ describe('ServiceOrder', () => {
       const order = opened();
 
       expect(order.id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(order.number).toBe(1042);
       expect(order.status).toBe('RECEIVED');
       expect(order.customerId).toBe('customer-1');
       expect(order.vehicleId).toBe('vehicle-1');
@@ -99,6 +100,15 @@ describe('ServiceOrder', () => {
       expect(events).toHaveLength(1);
       expect(events[0]).toBeInstanceOf(ServiceOrderOpened);
       expect(order.pullDomainEvents()).toHaveLength(0);
+    });
+
+    it.each([0, -1, 1.5])('rejeita número de OS %s', (number) => {
+      expect(() =>
+        ServiceOrder.open(
+          { number, customerId: 'customer-1', vehicleId: 'vehicle-1' },
+          at('08:00'),
+        ),
+      ).toThrow(InvalidServiceOrderError);
     });
   });
 
@@ -142,6 +152,13 @@ describe('ServiceOrder', () => {
         ServiceOrderActionNotAllowedError,
       );
       expect(() => order.addPart(brakePads)).toThrow(
+        ServiceOrderActionNotAllowedError,
+      );
+    });
+
+    it('informa se aceita itens, antes de qualquer efeito colateral', () => {
+      expect(() => inDiagnosis().assertAcceptsItems()).not.toThrow();
+      expect(() => awaitingApproval().assertAcceptsItems()).toThrow(
         ServiceOrderActionNotAllowedError,
       );
     });
@@ -365,6 +382,7 @@ describe('ServiceOrder', () => {
       const order = ServiceOrder.restore(
         '55555555-5555-5555-5555-555555555555',
         {
+          number: 7,
           customerId: 'customer-1',
           vehicleId: 'vehicle-1',
           history: StatusHistory.start(at('08:00')),
@@ -375,6 +393,7 @@ describe('ServiceOrder', () => {
       );
 
       expect(order.id).toBe('55555555-5555-5555-5555-555555555555');
+      expect(order.number).toBe(7);
       expect(order.status).toBe('RECEIVED');
       expect(order.pullDomainEvents()).toHaveLength(0);
     });

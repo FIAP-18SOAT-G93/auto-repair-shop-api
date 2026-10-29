@@ -40,5 +40,6 @@ import { ServicesController } from './presentation/services.controller.js';
     { provide: ServiceRepository, useClass: PrismaServiceRepository },
     { provide: PartRepository, useClass: PrismaPartRepository },
   ],
+  exports: [GetServiceUseCase, DeductStockUseCase, ReverseStockUseCase],
 })
 export class CatalogModule {}

@@ -6,6 +6,7 @@ import { DomainExceptionFilter } from './shared/infrastructure/http/domain-excep
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CustomerModule } from './modules/customer/customer.module.js';
 import { CatalogModule } from './modules/catalog/catalog.module.js';
+import { ServiceOrderModule } from './modules/service-order/service-order.module.js';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { CatalogModule } from './modules/catalog/catalog.module.js';
     AuthModule,
     CustomerModule,
     CatalogModule,
+    ServiceOrderModule,
   ],
   controllers: [],
   providers: [

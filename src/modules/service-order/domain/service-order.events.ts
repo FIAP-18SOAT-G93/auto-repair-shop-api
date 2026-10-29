@@ -12,6 +12,7 @@ export class ServiceOrderOpened implements DomainEvent {
 
   constructor(
     readonly serviceOrderId: string,
+    readonly number: number,
     readonly customerId: string,
     readonly vehicleId: string,
     readonly occurredAt: Date,
