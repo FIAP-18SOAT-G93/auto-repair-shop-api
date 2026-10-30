@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -24,15 +25,27 @@ import { AddPartToOrderUseCase } from '../application/add-part-to-order.use-case
 import { AddServiceToOrderUseCase } from '../application/add-service-to-order.use-case.js';
 import { ApproveQuoteUseCase } from '../application/approve-quote.use-case.js';
 import { ConcludeDiagnosisUseCase } from '../application/conclude-diagnosis.use-case.js';
+import { DeliverServiceOrderUseCase } from '../application/deliver-service-order.use-case.js';
+import { FinishServiceOrderUseCase } from '../application/finish-service-order.use-case.js';
 import { GetServiceOrderUseCase } from '../application/get-service-order.use-case.js';
+import {
+  type ListServiceOrdersOutput,
+  ListServiceOrdersUseCase,
+} from '../application/list-service-orders.use-case.js';
 import { OpenServiceOrderUseCase } from '../application/open-service-order.use-case.js';
+import { RegisterAdditionalRepairUseCase } from '../application/register-additional-repair.use-case.js';
 import { RejectQuoteUseCase } from '../application/reject-quote.use-case.js';
 import type { ServiceOrderOutput } from '../application/service-order.output.js';
 import { StartDiagnosisUseCase } from '../application/start-diagnosis.use-case.js';
 import { AddPartDto, AddServiceDto } from './dto/add-items.dto.js';
+import { AdditionalRepairDto } from './dto/additional-repair.dto.js';
+import { ListServiceOrdersQueryDto } from './dto/list-service-orders.query.dto.js';
 import { OpenServiceOrderDto } from './dto/open-service-order.dto.js';
 import { QuoteDecisionDto, RejectQuoteDto } from './dto/quote-decision.dto.js';
-import { ServiceOrderResponseDto } from './dto/service-order-response.dto.js';
+import {
+  ServiceOrderPageResponseDto,
+  ServiceOrderResponseDto,
+} from './dto/service-order-response.dto.js';
 
 @ApiTags('Ordens de serviço')
 @ApiBearerAuth()
@@ -47,6 +60,10 @@ export class ServiceOrdersController {
     private readonly concludeDiagnosis: ConcludeDiagnosisUseCase,
     private readonly approveQuote: ApproveQuoteUseCase,
     private readonly rejectQuote: RejectQuoteUseCase,
+    private readonly registerAdditionalRepair: RegisterAdditionalRepairUseCase,
+    private readonly finishServiceOrder: FinishServiceOrderUseCase,
+    private readonly deliverServiceOrder: DeliverServiceOrderUseCase,
+    private readonly listServiceOrders: ListServiceOrdersUseCase,
   ) {}
 
   @Post()
@@ -63,6 +80,25 @@ export class ServiceOrdersController {
   })
   open(@Body() dto: OpenServiceOrderDto): Promise<ServiceOrderOutput> {
     return this.openServiceOrder.execute(dto);
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: 'Lista as OS, da mais recente para a mais antiga, com filtros',
+  })
+  @ApiOkResponse({ type: ServiceOrderPageResponseDto })
+  @ApiBadRequestResponse({ description: 'Filtro ou paginação inválidos' })
+  list(
+    @Query() query: ListServiceOrdersQueryDto,
+  ): Promise<ListServiceOrdersOutput> {
+    return this.listServiceOrders.execute({
+      status: query.status,
+      customerId: query.customerId,
+      openedFrom: query.openedFrom,
+      openedTo: query.openedTo,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
   }
 
   @Get(':id')
@@ -183,5 +219,54 @@ export class ServiceOrdersController {
       version: dto.version,
       reason: dto.reason,
     });
+  }
+
+  @Post(':id/additional-repair')
+  @Roles(Role.MECHANIC, Role.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Registra um reparo adicional, com baixa no estoque e novo orçamento',
+  })
+  @ApiOkResponse({ type: ServiceOrderResponseDto })
+  @ApiBadRequestResponse({ description: 'Nenhum serviço ou peça informado' })
+  @ApiNotFoundResponse({ description: 'OS, serviço ou peça não encontrado' })
+  @ApiConflictResponse({
+    description: 'A OS não está Em execução ou uma peça está sem saldo',
+  })
+  additionalRepair(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdditionalRepairDto,
+  ): Promise<ServiceOrderOutput> {
+    return this.registerAdditionalRepair.execute({
+      serviceOrderId: id,
+      services: dto.services,
+      parts: dto.parts?.map((part) => ({
+        partId: part.partId,
+        quantity: part.quantity,
+      })),
+    });
+  }
+
+  @Post(':id/finish')
+  @Roles(Role.MECHANIC, Role.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Finaliza a execução e avisa o cliente' })
+  @ApiOkResponse({ type: ServiceOrderResponseDto })
+  @ApiNotFoundResponse({ description: 'OS não encontrada' })
+  @ApiConflictResponse({ description: 'A OS não está Em execução' })
+  finish(@Param('id', ParseUUIDPipe) id: string): Promise<ServiceOrderOutput> {
+    return this.finishServiceOrder.execute(id);
+  }
+
+  @Post(':id/deliver')
+  @Roles(Role.ATTENDANT, Role.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Registra a entrega do veículo ao cliente' })
+  @ApiOkResponse({ type: ServiceOrderResponseDto })
+  @ApiNotFoundResponse({ description: 'OS não encontrada' })
+  @ApiConflictResponse({ description: 'A OS não está Finalizada' })
+  deliver(@Param('id', ParseUUIDPipe) id: string): Promise<ServiceOrderOutput> {
+    return this.deliverServiceOrder.execute(id);
   }
 }
