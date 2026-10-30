@@ -48,6 +48,12 @@ const newCustomerAndVehicle: OpenServiceOrderInput = {
   vehicle: { plate: 'BRA2E19', brand: 'Volkswagen', model: 'Gol', year: 2020 },
 };
 
+const brakesAndFluid = (serviceOrderId: string) => ({
+  serviceOrderId,
+  services: ['service-brakes'],
+  parts: [{ partId: 'part-fluid', quantity: 1 }],
+});
+
 function setup() {
   const orders = new InMemoryServiceOrderRepository();
   const directory = new FakeCustomerDirectory();
@@ -267,7 +273,13 @@ describe('Casos de uso da OS', () => {
 
       const order = await get.execute(id);
       expect(order.services).toEqual([
-        { serviceId: 'service-alignment', name: 'Alinhamento', price: 89.9 },
+        {
+          serviceId: 'service-alignment',
+          name: 'Alinhamento',
+          price: 89.9,
+          quoteVersion: 1,
+          decision: null,
+        },
       ]);
     });
 
@@ -312,6 +324,8 @@ describe('Casos de uso da OS', () => {
           unitPrice: 149.9,
           quantity: 2,
           total: 299.8,
+          quoteVersion: 1,
+          decision: null,
         },
       ]);
       expect(stock.parts.get('part-pads')?.quantity.value).toBe(1);
@@ -503,12 +517,6 @@ describe('Casos de uso da OS', () => {
   });
 
   describe('RegisterAdditionalRepairUseCase', () => {
-    const brakesAndFluid = (serviceOrderId: string) => ({
-      serviceOrderId,
-      services: ['service-brakes'],
-      parts: [{ partId: 'part-fluid', quantity: 1 }],
-    });
-
     it('inclui os itens na versão 2, dá baixa e volta para Aguardando aprovação', async () => {
       const { inExecution, registerAdditionalRepair, stock } = setup();
       const id = await inExecution();
@@ -585,10 +593,58 @@ describe('Casos de uso da OS', () => {
       const order = await approve.execute({ serviceOrderId: id, version: 2 });
 
       expect(order.status).toBe('IN_EXECUTION');
+      expect(order.approvedTotal).toBe(601.7);
+    });
+
+    it('informa o total aprovado, o total se aprovado e a versão de cada item', async () => {
+      const { inExecution, registerAdditionalRepair } = setup();
+      const id = await inExecution();
+
+      const order = await registerAdditionalRepair.execute(brakesAndFluid(id));
+
+      expect(order.approvedTotal).toBe(389.7);
+      expect(order.totalIfApproved).toBe(601.7);
+      expect(
+        order.services.map(({ quoteVersion, decision }) => ({
+          quoteVersion,
+          decision,
+        })),
+      ).toEqual([
+        { quoteVersion: 1, decision: 'APPROVED' },
+        { quoteVersion: 2, decision: null },
+      ]);
+    });
+
+    it('a rejeição da versão 2 estorna só as peças dela e retoma a execução', async () => {
+      const { inExecution, registerAdditionalRepair, reject, stock } = setup();
+      const id = await inExecution();
+      await registerAdditionalRepair.execute(brakesAndFluid(id));
+
+      const order = await reject.execute({ serviceOrderId: id, version: 2 });
+
+      expect(order.status).toBe('IN_EXECUTION');
+      expect(order.approvedTotal).toBe(389.7);
+      expect(order.parts.map((part) => part.decision)).toEqual([
+        'APPROVED',
+        'REJECTED',
+      ]);
+      expect(stock.parts.get('part-fluid')?.quantity.value).toBe(3);
+      expect(stock.parts.get('part-pads')?.quantity.value).toBe(1);
     });
   });
 
   describe('FinishServiceOrderUseCase', () => {
+    it('finaliza a OS depois da rejeição de um reparo adicional', async () => {
+      const { inExecution, registerAdditionalRepair, reject, finish } = setup();
+      const id = await inExecution();
+      await registerAdditionalRepair.execute(brakesAndFluid(id));
+      await reject.execute({ serviceOrderId: id, version: 2 });
+
+      const order = await finish.execute(id);
+
+      expect(order.status).toBe('FINISHED');
+    });
+
     it('finaliza a OS em execução e avisa o cliente', async () => {
       const { inExecution, finish, notifications } = setup();
       const id = await inExecution();

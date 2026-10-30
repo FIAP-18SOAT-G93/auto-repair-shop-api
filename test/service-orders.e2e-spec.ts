@@ -26,6 +26,8 @@ interface OrderBody {
     rejectionReason: string | null;
   } | null;
   history: { to: string }[];
+  approvedTotal: number;
+  totalIfApproved: number;
 }
 
 describe('Ordens de serviço (e2e)', () => {
@@ -453,7 +455,28 @@ describe('Ordens de serviço (e2e)', () => {
         decision: null,
       });
       expect(body.services).toHaveLength(2);
+      expect(body.approvedTotal).toBe(389.7);
+      expect(body.totalIfApproved).toBe(629.5);
       expect(await stockOf()).toBe(stockBefore - 1);
+    });
+
+    it('a rejeição do reparo adicional estorna as peças dele e o serviço aprovado continua até a entrega', async () => {
+      const order = await orderInExecution();
+      const stockBefore = await stockOf();
+      await command(order, 'additional-repair', mechanic)
+        .send({ parts: [{ partId, quantity: 1 }] })
+        .expect(200);
+
+      const rejected = await decide(order, 'reject', {
+        version: 2,
+        reason: 'Fica para a próxima revisão',
+      }).expect(200);
+
+      expect((rejected.body as OrderBody).status).toBe('IN_EXECUTION');
+      expect((rejected.body as OrderBody).approvedTotal).toBe(389.7);
+      expect(await stockOf()).toBe(stockBefore);
+      await command(order, 'finish', mechanic).expect(200);
+      await command(order, 'deliver', attendant).expect(200);
     });
 
     it('sem saldo de uma das peças, desfaz a baixa das outras', async () => {
