@@ -29,7 +29,11 @@ import type {
 } from '../application/ports/service-catalog.js';
 import { VehicleHasOpenServiceOrderError } from '../domain/service-order.errors.js';
 import { ServiceOrder } from '../domain/service-order.js';
-import { ServiceOrderRepository } from '../domain/service-order.repository.js';
+import {
+  type ServiceOrderFilter,
+  type ServiceOrderPage,
+  ServiceOrderRepository,
+} from '../domain/service-order.repository.js';
 
 export class InMemoryServiceOrderRepository implements ServiceOrderRepository {
   readonly orders = new Map<string, ServiceOrder>();
@@ -64,6 +68,27 @@ export class InMemoryServiceOrderRepository implements ServiceOrderRepository {
 
   async existsOpenForCustomer(customerId: string): Promise<boolean> {
     return this.open().some((o) => o.customerId === customerId);
+  }
+
+  async list(
+    filter: ServiceOrderFilter,
+    page: number,
+    pageSize: number,
+  ): Promise<ServiceOrderPage> {
+    const matches = [...this.orders.values()]
+      .filter(
+        (o) =>
+          (!filter.status || o.status === filter.status) &&
+          (!filter.customerId || o.customerId === filter.customerId) &&
+          (!filter.openedFrom || o.openedAt >= filter.openedFrom) &&
+          (!filter.openedBefore || o.openedAt < filter.openedBefore),
+      )
+      .sort((a, b) => b.number - a.number);
+    const start = (page - 1) * pageSize;
+    return {
+      items: matches.slice(start, start + pageSize).map(copy),
+      total: matches.length,
+    };
   }
 
   private open(): ServiceOrder[] {
