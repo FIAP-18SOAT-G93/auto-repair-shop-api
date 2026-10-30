@@ -140,11 +140,15 @@ export class ServiceOrder extends AggregateRoot {
     );
   }
 
-  registerAdditionalRepair(items: AdditionalRepairItems, now: Date): void {
+  assertAcceptsAdditionalRepair(): void {
     this.assertStatus(
       ServiceOrderStatus.IN_EXECUTION,
       'registrar reparo adicional',
     );
+  }
+
+  registerAdditionalRepair(items: AdditionalRepairItems, now: Date): void {
+    this.assertAcceptsAdditionalRepair();
     const services = items.services ?? [];
     const parts = items.parts ?? [];
     if (services.length === 0 && parts.length === 0) {
