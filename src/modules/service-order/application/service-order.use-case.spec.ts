@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Money } from '../../../shared/domain/money.js';
 import {
   InvalidQuantityError,
@@ -7,13 +8,16 @@ import { PartOutOfStockError } from '../../catalog/domain/part.errors.js';
 import { ServiceNotFoundError } from '../../catalog/domain/service.errors.js';
 import {
   InvalidServiceOrderError,
+  QuoteVersionMismatchError,
   ServiceOrderActionNotAllowedError,
   ServiceOrderNotFoundError,
+  ServiceOrderWithoutItemsError,
   VehicleHasOpenServiceOrderError,
   VehicleOwnedByAnotherCustomerError,
 } from '../domain/service-order.errors.js';
 import {
   FakeCustomerDirectory,
+  FakeNotificationGateway,
   FakePartStock,
   FakeServiceCatalog,
   ImmediateUnitOfWork,
@@ -21,11 +25,15 @@ import {
 } from '../testing/fakes.js';
 import { AddPartToOrderUseCase } from './add-part-to-order.use-case.js';
 import { AddServiceToOrderUseCase } from './add-service-to-order.use-case.js';
+import { ApproveQuoteUseCase } from './approve-quote.use-case.js';
+import { ConcludeDiagnosisUseCase } from './conclude-diagnosis.use-case.js';
 import { GetServiceOrderUseCase } from './get-service-order.use-case.js';
 import {
   type OpenServiceOrderInput,
   OpenServiceOrderUseCase,
 } from './open-service-order.use-case.js';
+import { RejectQuoteUseCase } from './reject-quote.use-case.js';
+import { ServiceOrderNotifier } from './service-order-notifier.js';
 import { StartDiagnosisUseCase } from './start-diagnosis.use-case.js';
 
 const newCustomerAndVehicle: OpenServiceOrderInput = {
@@ -51,23 +59,51 @@ function setup() {
     quantity: Quantity.of(3),
   });
 
+  const notifications = new FakeNotificationGateway();
   const open = new OpenServiceOrderUseCase(orders, directory, unitOfWork);
   const startDiagnosis = new StartDiagnosisUseCase(orders, unitOfWork);
+  const addService = new AddServiceToOrderUseCase(orders, catalog, unitOfWork);
+  const addPart = new AddPartToOrderUseCase(orders, stock, unitOfWork);
+  const concludeDiagnosis = new ConcludeDiagnosisUseCase(
+    orders,
+    new ServiceOrderNotifier(notifications),
+    unitOfWork,
+  );
+
+  const inDiagnosis = async () => {
+    const order = await open.execute(newCustomerAndVehicle);
+    await startDiagnosis.execute(order.id);
+    return order.id;
+  };
 
   return {
     orders,
     directory,
     catalog,
     stock,
+    notifications,
     open,
     get: new GetServiceOrderUseCase(orders),
     startDiagnosis,
-    addService: new AddServiceToOrderUseCase(orders, catalog, unitOfWork),
-    addPart: new AddPartToOrderUseCase(orders, stock, unitOfWork),
-    inDiagnosis: async () => {
-      const order = await open.execute(newCustomerAndVehicle);
-      await startDiagnosis.execute(order.id);
-      return order.id;
+    addService,
+    addPart,
+    concludeDiagnosis,
+    approve: new ApproveQuoteUseCase(orders, unitOfWork),
+    reject: new RejectQuoteUseCase(orders, stock, unitOfWork),
+    inDiagnosis,
+    awaitingApproval: async () => {
+      const id = await inDiagnosis();
+      await addService.execute({
+        serviceOrderId: id,
+        serviceId: 'service-alignment',
+      });
+      await addPart.execute({
+        serviceOrderId: id,
+        partId: 'part-pads',
+        quantity: 2,
+      });
+      await concludeDiagnosis.execute(id);
+      return id;
     },
   };
 }
@@ -287,6 +323,147 @@ describe('Casos de uso da OS', () => {
           quantity: 1.5,
         }),
       ).rejects.toThrow(InvalidQuantityError);
+    });
+  });
+
+  describe('ConcludeDiagnosisUseCase', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('gera o orçamento, aguarda aprovação e avisa o cliente', async () => {
+      const { awaitingApproval, get, notifications } = setup();
+
+      const id = await awaitingApproval();
+
+      const order = await get.execute(id);
+      expect(order.status).toBe('AWAITING_APPROVAL');
+      expect(order.quote).toMatchObject({
+        version: 1,
+        total: 389.7,
+        decision: null,
+      });
+      expect(notifications.quotesAvailable).toHaveLength(1);
+      expect(notifications.quotesAvailable[0]).toMatchObject({
+        customerId: order.customerId,
+        serviceOrderId: id,
+      });
+    });
+
+    it('sem itens, não conclui e não avisa o cliente', async () => {
+      const { inDiagnosis, concludeDiagnosis, get, notifications } = setup();
+      const id = await inDiagnosis();
+
+      await expect(concludeDiagnosis.execute(id)).rejects.toThrow(
+        ServiceOrderWithoutItemsError,
+      );
+      expect((await get.execute(id)).status).toBe('IN_DIAGNOSIS');
+      expect(notifications.quotesAvailable).toHaveLength(0);
+    });
+
+    it('uma falha na notificação não desfaz a conclusão', async () => {
+      const { awaitingApproval, get, notifications } = setup();
+      vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+      vi.spyOn(notifications, 'quoteAvailable').mockRejectedValue(
+        new Error('canal fora do ar'),
+      );
+
+      const id = await awaitingApproval();
+
+      expect((await get.execute(id)).status).toBe('AWAITING_APPROVAL');
+    });
+
+    it('responde não encontrado para OS inexistente', async () => {
+      const { concludeDiagnosis } = setup();
+
+      await expect(concludeDiagnosis.execute('inexistente')).rejects.toThrow(
+        ServiceOrderNotFoundError,
+      );
+    });
+  });
+
+  describe('ApproveQuoteUseCase', () => {
+    it('aprova a versão pendente e leva a OS para Em execução', async () => {
+      const { awaitingApproval, approve, stock } = setup();
+      const id = await awaitingApproval();
+
+      const order = await approve.execute({ serviceOrderId: id, version: 1 });
+
+      expect(order.status).toBe('IN_EXECUTION');
+      expect(order.quote?.decision).toBe('APPROVED');
+      expect(order.quote?.decidedAt).toBeInstanceOf(Date);
+      expect(stock.parts.get('part-pads')?.quantity.value).toBe(1);
+    });
+
+    it('recusa a decisão sobre outra versão sem alterar a OS', async () => {
+      const { awaitingApproval, approve, get } = setup();
+      const id = await awaitingApproval();
+
+      await expect(
+        approve.execute({ serviceOrderId: id, version: 2 }),
+      ).rejects.toThrow(QuoteVersionMismatchError);
+      expect((await get.execute(id)).status).toBe('AWAITING_APPROVAL');
+    });
+
+    it('responde não encontrado para OS inexistente', async () => {
+      const { approve } = setup();
+
+      await expect(
+        approve.execute({ serviceOrderId: 'inexistente', version: 1 }),
+      ).rejects.toThrow(ServiceOrderNotFoundError);
+    });
+  });
+
+  describe('RejectQuoteUseCase', () => {
+    it('finaliza sem execução, registra o motivo e estorna as peças', async () => {
+      const { awaitingApproval, reject, stock } = setup();
+      const id = await awaitingApproval();
+
+      const order = await reject.execute({
+        serviceOrderId: id,
+        version: 1,
+        reason: 'Valor acima do esperado',
+      });
+
+      expect(order.status).toBe('FINISHED');
+      expect(order.quote).toMatchObject({
+        decision: 'REJECTED',
+        rejectionReason: 'Valor acima do esperado',
+      });
+      expect(order.history.map((change) => change.to)).not.toContain(
+        'IN_EXECUTION',
+      );
+      expect(stock.parts.get('part-pads')?.quantity.value).toBe(3);
+    });
+
+    it('uma decisão recusada não estorna nada', async () => {
+      const { awaitingApproval, reject, stock } = setup();
+      const id = await awaitingApproval();
+
+      await expect(
+        reject.execute({ serviceOrderId: id, version: 2 }),
+      ).rejects.toThrow(QuoteVersionMismatchError);
+      expect(stock.parts.get('part-pads')?.quantity.value).toBe(1);
+    });
+
+    it('rejeita mesmo que a peça tenha sido removida do catálogo', async () => {
+      const { awaitingApproval, reject, stock } = setup();
+      const id = await awaitingApproval();
+      stock.parts.delete('part-pads');
+
+      const order = await reject.execute({ serviceOrderId: id, version: 1 });
+
+      expect(order.status).toBe('FINISHED');
+    });
+
+    it('não rejeita um orçamento já aprovado', async () => {
+      const { awaitingApproval, approve, reject } = setup();
+      const id = await awaitingApproval();
+      await approve.execute({ serviceOrderId: id, version: 1 });
+
+      await expect(
+        reject.execute({ serviceOrderId: id, version: 1 }),
+      ).rejects.toThrow(ServiceOrderActionNotAllowedError);
     });
   });
 });
