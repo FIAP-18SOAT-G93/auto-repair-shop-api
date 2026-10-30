@@ -1,7 +1,22 @@
 import { ApiProperty, PickType } from '@nestjs/swagger';
 import { ServiceOrderStatus } from '../../domain/service-order-status.js';
 
-class ServiceItemResponseDto {
+class ItemQuoteResponseDto {
+  @ApiProperty({
+    example: 1,
+    description: 'Versão do orçamento em que o item entrou',
+  })
+  quoteVersion!: number;
+
+  @ApiProperty({
+    enum: ['APPROVED', 'REJECTED'],
+    nullable: true,
+    description: 'Decisão do orçamento do item',
+  })
+  decision!: 'APPROVED' | 'REJECTED' | null;
+}
+
+class ServiceItemResponseDto extends ItemQuoteResponseDto {
   @ApiProperty({ format: 'uuid' })
   serviceId!: string;
 
@@ -12,7 +27,7 @@ class ServiceItemResponseDto {
   price!: number;
 }
 
-class PartItemResponseDto {
+class PartItemResponseDto extends ItemQuoteResponseDto {
   @ApiProperty({ format: 'uuid' })
   partId!: string;
 
@@ -91,6 +106,18 @@ export class ServiceOrderResponseDto {
 
   @ApiProperty({ type: [PartItemResponseDto] })
   parts!: PartItemResponseDto[];
+
+  @ApiProperty({
+    example: 389.7,
+    description: 'Soma dos orçamentos aprovados: o valor a pagar',
+  })
+  approvedTotal!: number;
+
+  @ApiProperty({
+    example: 601.7,
+    description: 'Total aprovado mais o orçamento pendente, se houver',
+  })
+  totalIfApproved!: number;
 
   @ApiProperty({ type: QuoteResponseDto, nullable: true })
   quote!: QuoteResponseDto | null;
