@@ -330,6 +330,13 @@ describe('ServiceOrder', () => {
       ).toThrow(InvalidServiceOrderError);
     });
 
+    it('informa se aceita reparo adicional, antes de qualquer efeito colateral', () => {
+      expect(() => inExecution().assertAcceptsAdditionalRepair()).not.toThrow();
+      expect(() => awaitingApproval().assertAcceptsAdditionalRepair()).toThrow(
+        'Não é possível registrar reparo adicional: a OS está "Aguardando aprovação"',
+      );
+    });
+
     it('só é possível durante a execução', () => {
       expect(() =>
         awaitingApproval().registerAdditionalRepair(
