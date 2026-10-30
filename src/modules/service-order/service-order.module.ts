@@ -10,6 +10,7 @@ import { ConcludeDiagnosisUseCase } from './application/conclude-diagnosis.use-c
 import { DeliverServiceOrderUseCase } from './application/deliver-service-order.use-case.js';
 import { FinishServiceOrderUseCase } from './application/finish-service-order.use-case.js';
 import { GetServiceOrderUseCase } from './application/get-service-order.use-case.js';
+import { ListServiceOrdersUseCase } from './application/list-service-orders.use-case.js';
 import { OpenServiceOrderUseCase } from './application/open-service-order.use-case.js';
 import { CustomerDirectory } from './application/ports/customer-directory.js';
 import { PartStock } from './application/ports/part-stock.js';
@@ -45,6 +46,7 @@ import { ServiceOrderPersistenceModule } from './service-order-persistence.modul
     RegisterAdditionalRepairUseCase,
     FinishServiceOrderUseCase,
     DeliverServiceOrderUseCase,
+    ListServiceOrdersUseCase,
     ServiceOrderNotifier,
     { provide: CustomerDirectory, useClass: CustomerModuleDirectory },
     { provide: ServiceCatalog, useClass: CatalogModuleServiceCatalog },

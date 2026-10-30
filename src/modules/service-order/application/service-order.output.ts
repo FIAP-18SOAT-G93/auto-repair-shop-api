@@ -36,6 +36,30 @@ export interface ServiceOrderOutput {
   }[];
 }
 
+export interface ServiceOrderSummaryOutput {
+  id: string;
+  number: number;
+  customerId: string;
+  vehicleId: string;
+  status: ServiceOrderStatus;
+  statusLabel: string;
+  openedAt: Date;
+}
+
+export function toServiceOrderSummary(
+  order: ServiceOrder,
+): ServiceOrderSummaryOutput {
+  return {
+    id: order.id,
+    number: order.number,
+    customerId: order.customerId,
+    vehicleId: order.vehicleId,
+    status: order.status,
+    statusLabel: STATUS_LABELS[order.status],
+    openedAt: order.openedAt,
+  };
+}
+
 export function toServiceOrderOutput(order: ServiceOrder): ServiceOrderOutput {
   const quote = order.currentQuote;
   return {
