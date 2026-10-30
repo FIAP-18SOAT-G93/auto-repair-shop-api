@@ -18,6 +18,13 @@ interface OrderBody {
   status: string;
   services: { serviceId: string; price: number }[];
   parts: { partId: string; quantity: number; total: number }[];
+  quote: {
+    version: number;
+    total: number;
+    decision: string | null;
+    rejectionReason: string | null;
+  } | null;
+  history: { to: string }[];
 }
 
 describe('Ordens de serviço (e2e)', () => {
@@ -30,6 +37,7 @@ describe('Ordens de serviço (e2e)', () => {
   const orderIds: string[] = [];
   const customerIds = new Set<string>();
   const vehicleIds = new Set<string>();
+  const extraPartIds: string[] = [];
 
   const api = () => request(app.getHttpServer());
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -66,6 +74,35 @@ describe('Ordens de serviço (e2e)', () => {
     return order;
   }
 
+  async function orderAwaitingApproval(part = partId): Promise<OrderBody> {
+    const order = await orderInDiagnosis();
+    await api()
+      .post(`/service-orders/${order.id}/services`)
+      .set(auth(mechanic))
+      .send({ serviceId })
+      .expect(200);
+    await api()
+      .post(`/service-orders/${order.id}/parts`)
+      .set(auth(mechanic))
+      .send({ partId: part, quantity: 2 })
+      .expect(200);
+    const response = await api()
+      .post(`/service-orders/${order.id}/conclude-diagnosis`)
+      .set(auth(mechanic))
+      .expect(200);
+    return response.body as OrderBody;
+  }
+
+  const decide = (
+    order: OrderBody,
+    decision: 'approve' | 'reject',
+    body: Record<string, unknown>,
+  ) =>
+    api()
+      .post(`/service-orders/${order.id}/${decision}-quote`)
+      .set(auth(attendant))
+      .send(body);
+
   const stockOf = async () =>
     (await api().get(`/parts/${partId}`).set(auth(manager)).expect(200)).body
       .quantity as number;
@@ -99,7 +136,7 @@ describe('Ordens de serviço (e2e)', () => {
         name: `Peça OS E2E ${randomUUID()}`,
         type: 'PART',
         price: 149.9,
-        quantity: 10,
+        quantity: 20,
       })
       .expect(201);
     partId = part.body.id as string;
@@ -115,7 +152,9 @@ describe('Ordens de serviço (e2e)', () => {
       where: { id: { in: [...customerIds] } },
     });
     await client?.service.deleteMany({ where: { id: serviceId } });
-    await client?.part.deleteMany({ where: { id: partId } });
+    await client?.part.deleteMany({
+      where: { id: { in: [partId, ...extraPartIds] } },
+    });
     if (app) await removeHelperUsers(app);
     await app?.close();
   });
@@ -246,6 +285,118 @@ describe('Ordens de serviço (e2e)', () => {
         .post(`/service-orders/${order.id}/services`)
         .set(auth(attendant))
         .send({ serviceId })
+        .expect(403);
+    });
+  });
+
+  describe('orçamento', () => {
+    it('concluir o diagnóstico gera o orçamento e aguarda aprovação', async () => {
+      const order = await orderAwaitingApproval();
+
+      expect(order.status).toBe('AWAITING_APPROVAL');
+      expect(order.quote).toMatchObject({
+        version: 1,
+        total: 389.7,
+        decision: null,
+      });
+    });
+
+    it('sem itens, a conclusão do diagnóstico responde 409', async () => {
+      const order = await orderInDiagnosis();
+
+      await api()
+        .post(`/service-orders/${order.id}/conclude-diagnosis`)
+        .set(auth(mechanic))
+        .expect(409);
+    });
+
+    it('a aprovação leva a OS para Em execução, uma única vez', async () => {
+      const order = await orderAwaitingApproval();
+
+      const response = await decide(order, 'approve', { version: 1 }).expect(
+        200,
+      );
+
+      expect((response.body as OrderBody).status).toBe('IN_EXECUTION');
+      await decide(order, 'approve', { version: 1 }).expect(409);
+    });
+
+    it('a rejeição finaliza sem execução, guarda o motivo e devolve o estoque', async () => {
+      const stockBefore = await stockOf();
+      const order = await orderAwaitingApproval();
+      expect(await stockOf()).toBe(stockBefore - 2);
+
+      await decide(order, 'reject', {
+        version: 1,
+        reason: 'Valor acima do esperado',
+      }).expect(200);
+
+      const detail = await api()
+        .get(`/service-orders/${order.id}`)
+        .set(auth(attendant))
+        .expect(200);
+      const body = detail.body as OrderBody;
+      expect(body.status).toBe('FINISHED');
+      expect(body.quote).toMatchObject({
+        decision: 'REJECTED',
+        rejectionReason: 'Valor acima do esperado',
+      });
+      expect(body.history.map((change) => change.to)).not.toContain(
+        'IN_EXECUTION',
+      );
+      expect(await stockOf()).toBe(stockBefore);
+    });
+
+    it('uma decisão sobre outra versão responde 409 sem mexer no estoque', async () => {
+      const order = await orderAwaitingApproval();
+      const stockBefore = await stockOf();
+
+      await decide(order, 'reject', { version: 2 }).expect(409);
+
+      expect(await stockOf()).toBe(stockBefore);
+    });
+
+    it('rejeita mesmo que a peça tenha sido removida do catálogo', async () => {
+      const part = await api()
+        .post('/parts')
+        .set(auth(manager))
+        .send({
+          name: `Insumo removido E2E ${randomUUID()}`,
+          type: 'SUPPLY',
+          price: 25,
+          quantity: 5,
+        })
+        .expect(201);
+      const removedPartId = part.body.id as string;
+      extraPartIds.push(removedPartId);
+      const order = await orderAwaitingApproval(removedPartId);
+      await api()
+        .delete(`/parts/${removedPartId}`)
+        .set(auth(manager))
+        .expect(204);
+
+      await decide(order, 'reject', { version: 1 }).expect(200);
+    });
+
+    it.each<[string, Record<string, unknown>]>([
+      ['sem versão', {}],
+      ['versão zero', { version: 0 }],
+      ['versão fracionada', { version: 1.5 }],
+      ['motivo longo demais', { version: 1, reason: 'x'.repeat(501) }],
+      ['campo desconhecido', { version: 1, approved: false }],
+    ])('responde 400 para %s', async (_case, body) => {
+      await api()
+        .post(`/service-orders/${randomUUID()}/reject-quote`)
+        .set(auth(attendant))
+        .send(body)
+        .expect(400);
+    });
+
+    it('responde 403 para o mecânico decidir o orçamento', async () => {
+      await api()
+        .post(`/service-orders/${randomUUID()}/approve-quote`)
+        .set(auth(mechanic))
+        .send({ version: 1 })
         .expect(403);
     });
   });
