@@ -27,11 +27,14 @@ import { AddPartToOrderUseCase } from './add-part-to-order.use-case.js';
 import { AddServiceToOrderUseCase } from './add-service-to-order.use-case.js';
 import { ApproveQuoteUseCase } from './approve-quote.use-case.js';
 import { ConcludeDiagnosisUseCase } from './conclude-diagnosis.use-case.js';
+import { DeliverServiceOrderUseCase } from './deliver-service-order.use-case.js';
+import { FinishServiceOrderUseCase } from './finish-service-order.use-case.js';
 import { GetServiceOrderUseCase } from './get-service-order.use-case.js';
 import {
   type OpenServiceOrderInput,
   OpenServiceOrderUseCase,
 } from './open-service-order.use-case.js';
+import { RegisterAdditionalRepairUseCase } from './register-additional-repair.use-case.js';
 import { RejectQuoteUseCase } from './reject-quote.use-case.js';
 import { ServiceOrderNotifier } from './service-order-notifier.js';
 import { StartDiagnosisUseCase } from './start-diagnosis.use-case.js';
@@ -53,9 +56,19 @@ function setup() {
     name: 'Alinhamento',
     price: Money.fromDecimal(89.9),
   });
+  catalog.services.set('service-brakes', {
+    id: 'service-brakes',
+    name: 'Revisão de freios',
+    price: Money.fromDecimal(180),
+  });
   stock.parts.set('part-pads', {
     name: 'Pastilha de freio dianteira',
     unitPrice: Money.fromDecimal(149.9),
+    quantity: Quantity.of(3),
+  });
+  stock.parts.set('part-fluid', {
+    name: 'Fluido de freio DOT 4',
+    unitPrice: Money.fromDecimal(32),
     quantity: Quantity.of(3),
   });
 
@@ -64,16 +77,32 @@ function setup() {
   const startDiagnosis = new StartDiagnosisUseCase(orders, unitOfWork);
   const addService = new AddServiceToOrderUseCase(orders, catalog, unitOfWork);
   const addPart = new AddPartToOrderUseCase(orders, stock, unitOfWork);
+  const notifier = new ServiceOrderNotifier(notifications);
   const concludeDiagnosis = new ConcludeDiagnosisUseCase(
     orders,
-    new ServiceOrderNotifier(notifications),
+    notifier,
     unitOfWork,
   );
+  const approve = new ApproveQuoteUseCase(orders, unitOfWork);
 
   const inDiagnosis = async () => {
     const order = await open.execute(newCustomerAndVehicle);
     await startDiagnosis.execute(order.id);
     return order.id;
+  };
+  const awaitingApproval = async () => {
+    const id = await inDiagnosis();
+    await addService.execute({
+      serviceOrderId: id,
+      serviceId: 'service-alignment',
+    });
+    await addPart.execute({
+      serviceOrderId: id,
+      partId: 'part-pads',
+      quantity: 2,
+    });
+    await concludeDiagnosis.execute(id);
+    return id;
   };
 
   return {
@@ -88,21 +117,22 @@ function setup() {
     addService,
     addPart,
     concludeDiagnosis,
-    approve: new ApproveQuoteUseCase(orders, unitOfWork),
+    approve,
     reject: new RejectQuoteUseCase(orders, stock, unitOfWork),
+    registerAdditionalRepair: new RegisterAdditionalRepairUseCase(
+      orders,
+      catalog,
+      stock,
+      notifier,
+      unitOfWork,
+    ),
+    finish: new FinishServiceOrderUseCase(orders, notifier, unitOfWork),
+    deliver: new DeliverServiceOrderUseCase(orders, unitOfWork),
     inDiagnosis,
-    awaitingApproval: async () => {
-      const id = await inDiagnosis();
-      await addService.execute({
-        serviceOrderId: id,
-        serviceId: 'service-alignment',
-      });
-      await addPart.execute({
-        serviceOrderId: id,
-        partId: 'part-pads',
-        quantity: 2,
-      });
-      await concludeDiagnosis.execute(id);
+    awaitingApproval,
+    inExecution: async () => {
+      const id = await awaitingApproval();
+      await approve.execute({ serviceOrderId: id, version: 1 });
       return id;
     },
   };
@@ -464,6 +494,158 @@ describe('Casos de uso da OS', () => {
       await expect(
         reject.execute({ serviceOrderId: id, version: 1 }),
       ).rejects.toThrow(ServiceOrderActionNotAllowedError);
+    });
+  });
+
+  describe('RegisterAdditionalRepairUseCase', () => {
+    const brakesAndFluid = (serviceOrderId: string) => ({
+      serviceOrderId,
+      services: ['service-brakes'],
+      parts: [{ partId: 'part-fluid', quantity: 1 }],
+    });
+
+    it('inclui os itens na versão 2, dá baixa e volta para Aguardando aprovação', async () => {
+      const { inExecution, registerAdditionalRepair, stock } = setup();
+      const id = await inExecution();
+
+      const order = await registerAdditionalRepair.execute(brakesAndFluid(id));
+
+      expect(order.status).toBe('AWAITING_APPROVAL');
+      expect(order.quote).toMatchObject({
+        version: 2,
+        total: 212,
+        decision: null,
+      });
+      expect(order.services).toHaveLength(2);
+      expect(order.parts).toHaveLength(2);
+      expect(stock.parts.get('part-fluid')?.quantity.value).toBe(2);
+    });
+
+    it('avisa o cliente sobre o novo orçamento', async () => {
+      const { inExecution, registerAdditionalRepair, notifications } = setup();
+      const id = await inExecution();
+
+      await registerAdditionalRepair.execute(brakesAndFluid(id));
+
+      expect(notifications.quotesAvailable).toHaveLength(2);
+      expect(notifications.quotesAvailable[1]?.total.cents).toBe(21200);
+    });
+
+    it('sem saldo de uma das peças, não altera a OS', async () => {
+      const { inExecution, registerAdditionalRepair, get } = setup();
+      const id = await inExecution();
+
+      await expect(
+        registerAdditionalRepair.execute({
+          serviceOrderId: id,
+          parts: [
+            { partId: 'part-fluid', quantity: 1 },
+            { partId: 'part-pads', quantity: 5 },
+          ],
+        }),
+      ).rejects.toThrow(PartOutOfStockError);
+      const order = await get.execute(id);
+      expect(order.status).toBe('IN_EXECUTION');
+      expect(order.parts).toHaveLength(1);
+    });
+
+    it('fora da execução, recusa antes de consultar o catálogo e o estoque', async () => {
+      const { awaitingApproval, registerAdditionalRepair, stock } = setup();
+      const id = await awaitingApproval();
+
+      await expect(
+        registerAdditionalRepair.execute({
+          serviceOrderId: id,
+          services: ['inexistente'],
+          parts: [{ partId: 'part-fluid', quantity: 1 }],
+        }),
+      ).rejects.toThrow(ServiceOrderActionNotAllowedError);
+      expect(stock.parts.get('part-fluid')?.quantity.value).toBe(3);
+    });
+
+    it('exige ao menos um item', async () => {
+      const { inExecution, registerAdditionalRepair } = setup();
+      const id = await inExecution();
+
+      await expect(
+        registerAdditionalRepair.execute({ serviceOrderId: id }),
+      ).rejects.toThrow(InvalidServiceOrderError);
+    });
+
+    it('a aprovação da versão 2 retoma a execução', async () => {
+      const { inExecution, registerAdditionalRepair, approve } = setup();
+      const id = await inExecution();
+      await registerAdditionalRepair.execute(brakesAndFluid(id));
+
+      const order = await approve.execute({ serviceOrderId: id, version: 2 });
+
+      expect(order.status).toBe('IN_EXECUTION');
+    });
+  });
+
+  describe('FinishServiceOrderUseCase', () => {
+    it('finaliza a OS em execução e avisa o cliente', async () => {
+      const { inExecution, finish, notifications } = setup();
+      const id = await inExecution();
+
+      const order = await finish.execute(id);
+
+      expect(order.status).toBe('FINISHED');
+      expect(notifications.ordersFinished).toEqual([
+        { customerId: order.customerId, serviceOrderId: id },
+      ]);
+    });
+
+    it('não finaliza uma OS aguardando aprovação nem avisa o cliente', async () => {
+      const { awaitingApproval, finish, notifications } = setup();
+      const id = await awaitingApproval();
+
+      await expect(finish.execute(id)).rejects.toThrow(
+        ServiceOrderActionNotAllowedError,
+      );
+      expect(notifications.ordersFinished).toHaveLength(0);
+    });
+
+    it('responde não encontrado para OS inexistente', async () => {
+      const { finish } = setup();
+
+      await expect(finish.execute('inexistente')).rejects.toThrow(
+        ServiceOrderNotFoundError,
+      );
+    });
+  });
+
+  describe('DeliverServiceOrderUseCase', () => {
+    it('entrega o veículo e o libera para uma nova OS', async () => {
+      const { inExecution, finish, deliver, open } = setup();
+      const id = await inExecution();
+      await finish.execute(id);
+
+      const order = await deliver.execute(id);
+
+      expect(order.status).toBe('DELIVERED');
+      const next = await open.execute(newCustomerAndVehicle);
+      expect(next.vehicleId).toBe(order.vehicleId);
+      expect(next.number).toBe(2);
+    });
+
+    it('entrega o veículo de uma OS com o orçamento rejeitado', async () => {
+      const { awaitingApproval, reject, deliver } = setup();
+      const id = await awaitingApproval();
+      await reject.execute({ serviceOrderId: id, version: 1 });
+
+      const order = await deliver.execute(id);
+
+      expect(order.status).toBe('DELIVERED');
+    });
+
+    it('não entrega o veículo de uma OS em execução', async () => {
+      const { inExecution, deliver } = setup();
+      const id = await inExecution();
+
+      await expect(deliver.execute(id)).rejects.toThrow(
+        ServiceOrderActionNotAllowedError,
+      );
     });
   });
 });
