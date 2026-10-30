@@ -7,11 +7,14 @@ import { AddPartToOrderUseCase } from './application/add-part-to-order.use-case.
 import { AddServiceToOrderUseCase } from './application/add-service-to-order.use-case.js';
 import { ApproveQuoteUseCase } from './application/approve-quote.use-case.js';
 import { ConcludeDiagnosisUseCase } from './application/conclude-diagnosis.use-case.js';
+import { DeliverServiceOrderUseCase } from './application/deliver-service-order.use-case.js';
+import { FinishServiceOrderUseCase } from './application/finish-service-order.use-case.js';
 import { GetServiceOrderUseCase } from './application/get-service-order.use-case.js';
 import { OpenServiceOrderUseCase } from './application/open-service-order.use-case.js';
 import { CustomerDirectory } from './application/ports/customer-directory.js';
 import { PartStock } from './application/ports/part-stock.js';
 import { ServiceCatalog } from './application/ports/service-catalog.js';
+import { RegisterAdditionalRepairUseCase } from './application/register-additional-repair.use-case.js';
 import { RejectQuoteUseCase } from './application/reject-quote.use-case.js';
 import { ServiceOrderNotifier } from './application/service-order-notifier.js';
 import { StartDiagnosisUseCase } from './application/start-diagnosis.use-case.js';
@@ -39,6 +42,9 @@ import { ServiceOrderPersistenceModule } from './service-order-persistence.modul
     ConcludeDiagnosisUseCase,
     ApproveQuoteUseCase,
     RejectQuoteUseCase,
+    RegisterAdditionalRepairUseCase,
+    FinishServiceOrderUseCase,
+    DeliverServiceOrderUseCase,
     ServiceOrderNotifier,
     { provide: CustomerDirectory, useClass: CustomerModuleDirectory },
     { provide: ServiceCatalog, useClass: CatalogModuleServiceCatalog },
