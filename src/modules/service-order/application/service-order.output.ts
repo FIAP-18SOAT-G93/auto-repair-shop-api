@@ -26,6 +26,8 @@ export interface ServiceOrderOutput {
     total: number;
     generatedAt: Date;
     decision: QuoteDecision | null;
+    decidedAt: Date | null;
+    rejectionReason: string | null;
   } | null;
   history: {
     from: ServiceOrderStatus | null;
@@ -61,6 +63,8 @@ export function toServiceOrderOutput(order: ServiceOrder): ServiceOrderOutput {
       total: quote.total.toDecimal(),
       generatedAt: quote.generatedAt,
       decision: quote.decision,
+      decidedAt: quote.decidedAt,
+      rejectionReason: quote.rejectionReason,
     },
     history: order.history.entries.map((change) => ({
       from: change.from,
