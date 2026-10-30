@@ -22,12 +22,16 @@ import { Role } from '../../auth/domain/role.js';
 import { Roles } from '../../auth/presentation/decorators.js';
 import { AddPartToOrderUseCase } from '../application/add-part-to-order.use-case.js';
 import { AddServiceToOrderUseCase } from '../application/add-service-to-order.use-case.js';
+import { ApproveQuoteUseCase } from '../application/approve-quote.use-case.js';
+import { ConcludeDiagnosisUseCase } from '../application/conclude-diagnosis.use-case.js';
 import { GetServiceOrderUseCase } from '../application/get-service-order.use-case.js';
 import { OpenServiceOrderUseCase } from '../application/open-service-order.use-case.js';
+import { RejectQuoteUseCase } from '../application/reject-quote.use-case.js';
 import type { ServiceOrderOutput } from '../application/service-order.output.js';
 import { StartDiagnosisUseCase } from '../application/start-diagnosis.use-case.js';
 import { AddPartDto, AddServiceDto } from './dto/add-items.dto.js';
 import { OpenServiceOrderDto } from './dto/open-service-order.dto.js';
+import { QuoteDecisionDto, RejectQuoteDto } from './dto/quote-decision.dto.js';
 import { ServiceOrderResponseDto } from './dto/service-order-response.dto.js';
 
 @ApiTags('Ordens de serviço')
@@ -40,6 +44,9 @@ export class ServiceOrdersController {
     private readonly startDiagnosis: StartDiagnosisUseCase,
     private readonly addService: AddServiceToOrderUseCase,
     private readonly addPart: AddPartToOrderUseCase,
+    private readonly concludeDiagnosis: ConcludeDiagnosisUseCase,
+    private readonly approveQuote: ApproveQuoteUseCase,
+    private readonly rejectQuote: RejectQuoteUseCase,
   ) {}
 
   @Post()
@@ -115,6 +122,66 @@ export class ServiceOrdersController {
       serviceOrderId: id,
       partId: dto.partId,
       quantity: dto.quantity,
+    });
+  }
+
+  @Post(':id/conclude-diagnosis')
+  @Roles(Role.MECHANIC, Role.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Conclui o diagnóstico, gera o orçamento e avisa o cliente',
+  })
+  @ApiOkResponse({ type: ServiceOrderResponseDto })
+  @ApiNotFoundResponse({ description: 'OS não encontrada' })
+  @ApiConflictResponse({
+    description: 'A OS não está Em diagnóstico ou não tem itens',
+  })
+  conclude(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ServiceOrderOutput> {
+    return this.concludeDiagnosis.execute(id);
+  }
+
+  @Post(':id/approve-quote')
+  @Roles(Role.ATTENDANT, Role.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Registra a aprovação do orçamento e inicia a execução',
+  })
+  @ApiOkResponse({ type: ServiceOrderResponseDto })
+  @ApiNotFoundResponse({ description: 'OS não encontrada' })
+  @ApiConflictResponse({
+    description: 'A OS não aguarda aprovação ou a versão não é a pendente',
+  })
+  approve(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: QuoteDecisionDto,
+  ): Promise<ServiceOrderOutput> {
+    return this.approveQuote.execute({
+      serviceOrderId: id,
+      version: dto.version,
+    });
+  }
+
+  @Post(':id/reject-quote')
+  @Roles(Role.ATTENDANT, Role.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Registra a rejeição, estorna as peças e finaliza sem execução',
+  })
+  @ApiOkResponse({ type: ServiceOrderResponseDto })
+  @ApiNotFoundResponse({ description: 'OS não encontrada' })
+  @ApiConflictResponse({
+    description: 'A OS não aguarda aprovação ou a versão não é a pendente',
+  })
+  reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectQuoteDto,
+  ): Promise<ServiceOrderOutput> {
+    return this.rejectQuote.execute({
+      serviceOrderId: id,
+      version: dto.version,
+      reason: dto.reason,
     });
   }
 }
