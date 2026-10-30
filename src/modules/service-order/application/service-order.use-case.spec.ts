@@ -31,6 +31,10 @@ import { DeliverServiceOrderUseCase } from './deliver-service-order.use-case.js'
 import { FinishServiceOrderUseCase } from './finish-service-order.use-case.js';
 import { GetServiceOrderUseCase } from './get-service-order.use-case.js';
 import {
+  ListServiceOrdersUseCase,
+  toOpenedPeriod,
+} from './list-service-orders.use-case.js';
+import {
   type OpenServiceOrderInput,
   OpenServiceOrderUseCase,
 } from './open-service-order.use-case.js';
@@ -128,6 +132,7 @@ function setup() {
     ),
     finish: new FinishServiceOrderUseCase(orders, notifier, unitOfWork),
     deliver: new DeliverServiceOrderUseCase(orders, unitOfWork),
+    list: new ListServiceOrdersUseCase(orders),
     inDiagnosis,
     awaitingApproval,
     inExecution: async () => {
@@ -646,6 +651,113 @@ describe('Casos de uso da OS', () => {
       await expect(deliver.execute(id)).rejects.toThrow(
         ServiceOrderActionNotAllowedError,
       );
+    });
+  });
+
+  describe('ListServiceOrdersUseCase', () => {
+    const secondVehicle: OpenServiceOrderInput = {
+      customer: { document: '529.982.247-25' },
+      vehicle: { plate: 'ABC1234', brand: 'Fiat', model: 'Uno', year: 2015 },
+    };
+
+    it('lista em resumo, da OS mais recente para a mais antiga', async () => {
+      const { open, list } = setup();
+      await open.execute(newCustomerAndVehicle);
+      const second = await open.execute(secondVehicle);
+
+      const result = await list.execute({
+        customerId: second.customerId,
+        page: 1,
+        pageSize: 10,
+      });
+
+      expect(result.total).toBe(2);
+      expect(result.items.map((order) => order.number)).toEqual([2, 1]);
+      expect(result.items[0]).toEqual({
+        id: second.id,
+        number: 2,
+        customerId: second.customerId,
+        vehicleId: second.vehicleId,
+        status: 'RECEIVED',
+        statusLabel: 'Recebida',
+        openedAt: expect.any(Date),
+      });
+    });
+
+    it('filtra pelo status', async () => {
+      const { inDiagnosis, open, list } = setup();
+      const id = await inDiagnosis();
+      await open.execute(secondVehicle);
+
+      const result = await list.execute({
+        status: 'IN_DIAGNOSIS',
+        page: 1,
+        pageSize: 10,
+      });
+
+      expect(result.items.map((order) => order.id)).toEqual([id]);
+    });
+
+    it('pagina e informa o total', async () => {
+      const { open, list } = setup();
+      await open.execute(newCustomerAndVehicle);
+      await open.execute(secondVehicle);
+
+      const result = await list.execute({ page: 2, pageSize: 1 });
+
+      expect(result).toMatchObject({ total: 2, page: 2, pageSize: 1 });
+      expect(result.items.map((order) => order.number)).toEqual([1]);
+    });
+
+    describe('período de abertura, no horário de Brasília', () => {
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      async function openedAt(iso: string) {
+        const { open, list } = setup();
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date(iso));
+        await open.execute(newCustomerAndVehicle);
+        vi.useRealTimers();
+        const count = async (openedFrom?: string, openedTo?: string) =>
+          (await list.execute({ openedFrom, openedTo, page: 1, pageSize: 10 }))
+            .total;
+        return count;
+      }
+
+      it('converte as datas no intervalo do dia inteiro em -03:00', () => {
+        expect(toOpenedPeriod('2026-10-01', '2026-10-31')).toEqual({
+          openedFrom: new Date('2026-10-01T03:00:00.000Z'),
+          openedBefore: new Date('2026-11-01T03:00:00.000Z'),
+        });
+      });
+
+      it('sem datas, não limita o período', () => {
+        expect(toOpenedPeriod()).toEqual({
+          openedFrom: undefined,
+          openedBefore: undefined,
+        });
+      });
+
+      it('uma OS das 22h de 31/10 em Brasília é do dia 31, embora já seja 01/11 em UTC', async () => {
+        const count = await openedAt('2026-10-31T22:00:00.000-03:00');
+
+        expect(await count(undefined, '2026-10-31')).toBe(1);
+        expect(await count('2026-11-01')).toBe(0);
+      });
+
+      it('o dia final entra inteiro, até o último milissegundo', async () => {
+        const count = await openedAt('2026-10-31T23:59:59.999-03:00');
+
+        expect(await count('2026-10-31', '2026-10-31')).toBe(1);
+      });
+
+      it('início depois do fim não lista nada', async () => {
+        const count = await openedAt('2026-10-15T12:00:00.000-03:00');
+
+        expect(await count('2026-10-31', '2026-10-01')).toBe(0);
+      });
     });
   });
 });
