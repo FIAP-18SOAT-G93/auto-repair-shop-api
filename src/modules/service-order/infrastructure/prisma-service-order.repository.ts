@@ -10,7 +10,11 @@ import { ServiceItem } from '../domain/service-item.js';
 import { ServiceOrderStatus } from '../domain/service-order-status.js';
 import { VehicleHasOpenServiceOrderError } from '../domain/service-order.errors.js';
 import { ServiceOrder } from '../domain/service-order.js';
-import { ServiceOrderRepository } from '../domain/service-order.repository.js';
+import {
+  type ServiceOrderFilter,
+  type ServiceOrderPage,
+  ServiceOrderRepository,
+} from '../domain/service-order.repository.js';
 import { StatusHistory } from '../domain/status-history.js';
 
 const INCLUDE = {
@@ -76,6 +80,29 @@ export class PrismaServiceOrderRepository implements ServiceOrderRepository {
       select: { id: true },
     });
     return record !== null;
+  }
+
+  async list(
+    filter: ServiceOrderFilter,
+    page: number,
+    pageSize: number,
+  ): Promise<ServiceOrderPage> {
+    const where = {
+      status: filter.status,
+      customerId: filter.customerId,
+      createdAt: { gte: filter.openedFrom, lt: filter.openedBefore },
+    } satisfies Prisma.ServiceOrderWhereInput;
+    const [records, total] = await Promise.all([
+      this.host.client.serviceOrder.findMany({
+        where,
+        include: INCLUDE,
+        orderBy: { number: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.host.client.serviceOrder.count({ where }),
+    ]);
+    return { items: records.map(toDomain), total };
   }
 
   private async saveRoot(order: ServiceOrder): Promise<void> {

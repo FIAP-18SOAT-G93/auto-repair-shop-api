@@ -22,10 +22,11 @@ describe('PrismaServiceOrderRepository (integração)', () => {
   async function newOrder(
     vehicleId = randomUUID(),
     customerId = randomUUID(),
+    openedAt = at('08:00'),
   ): Promise<ServiceOrder> {
     const order = ServiceOrder.open(
       { number: await orders.nextNumber(), customerId, vehicleId },
-      at('08:00'),
+      openedAt,
     );
     orderIds.push(order.id);
     return order;
@@ -153,6 +154,69 @@ describe('PrismaServiceOrderRepository (integração)', () => {
       await orders.save(next);
 
       expect((await orders.findOpenByVehicle(vehicleId))?.id).toBe(next.id);
+    });
+  });
+
+  describe('listagem', () => {
+    it('filtra por cliente e status, da OS mais recente para a mais antiga', async () => {
+      const customerId = randomUUID();
+      const first = await newOrder(randomUUID(), customerId);
+      const second = await newOrder(randomUUID(), customerId);
+      progressToExecution(second);
+      await orders.save(first);
+      await orders.save(second);
+      await orders.save(await newOrder());
+
+      const all = await orders.list({ customerId }, 1, 10);
+      const inExecution = await orders.list(
+        { customerId, status: 'IN_EXECUTION' },
+        1,
+        10,
+      );
+
+      expect(all.total).toBe(2);
+      expect(all.items.map((order) => order.id)).toEqual([second.id, first.id]);
+      expect(inExecution.items.map((order) => order.id)).toEqual([second.id]);
+      expect(inExecution.items[0]?.serviceItems).toHaveLength(1);
+    });
+
+    it('pagina mantendo o total', async () => {
+      const customerId = randomUUID();
+      for (let i = 0; i < 3; i++) {
+        await orders.save(await newOrder(randomUUID(), customerId));
+      }
+
+      const secondPage = await orders.list({ customerId }, 2, 2);
+
+      expect(secondPage.total).toBe(3);
+      expect(secondPage.items).toHaveLength(1);
+    });
+
+    it('filtra pela abertura, com o início incluído e o fim excluído', async () => {
+      const customerId = randomUUID();
+      const opened = async (iso: string) => {
+        const order = await newOrder(randomUUID(), customerId, new Date(iso));
+        await orders.save(order);
+        return order;
+      };
+      const atStart = await opened('2026-10-01T00:00:00Z');
+      const inside = await opened('2026-10-15T12:00:00Z');
+      await opened('2026-11-01T00:00:00Z');
+
+      const october = await orders.list(
+        {
+          customerId,
+          openedFrom: new Date('2026-10-01T00:00:00Z'),
+          openedBefore: new Date('2026-11-01T00:00:00Z'),
+        },
+        1,
+        10,
+      );
+
+      expect(october.items.map((order) => order.id)).toEqual([
+        inside.id,
+        atStart.id,
+      ]);
     });
   });
 

@@ -5,6 +5,11 @@ import {
 } from '../domain/service-order-status.js';
 import type { ServiceOrder } from '../domain/service-order.js';
 
+interface ItemQuote {
+  quoteVersion: number;
+  decision: QuoteDecision | null;
+}
+
 export interface ServiceOrderOutput {
   id: string;
   number: number;
@@ -13,14 +18,20 @@ export interface ServiceOrderOutput {
   status: ServiceOrderStatus;
   statusLabel: string;
   openedAt: Date;
-  services: { serviceId: string; name: string; price: number }[];
-  parts: {
+  services: ({
+    serviceId: string;
+    name: string;
+    price: number;
+  } & ItemQuote)[];
+  parts: ({
     partId: string;
     name: string;
     unitPrice: number;
     quantity: number;
     total: number;
-  }[];
+  } & ItemQuote)[];
+  approvedTotal: number;
+  totalIfApproved: number;
   quote: {
     version: number;
     total: number;
@@ -36,8 +47,37 @@ export interface ServiceOrderOutput {
   }[];
 }
 
+export interface ServiceOrderSummaryOutput {
+  id: string;
+  number: number;
+  customerId: string;
+  vehicleId: string;
+  status: ServiceOrderStatus;
+  statusLabel: string;
+  openedAt: Date;
+}
+
+export function toServiceOrderSummary(
+  order: ServiceOrder,
+): ServiceOrderSummaryOutput {
+  return {
+    id: order.id,
+    number: order.number,
+    customerId: order.customerId,
+    vehicleId: order.vehicleId,
+    status: order.status,
+    statusLabel: STATUS_LABELS[order.status],
+    openedAt: order.openedAt,
+  };
+}
+
 export function toServiceOrderOutput(order: ServiceOrder): ServiceOrderOutput {
   const quote = order.currentQuote;
+  const itemQuote = (quoteVersion: number): ItemQuote => ({
+    quoteVersion,
+    decision:
+      order.quotes.find((q) => q.version === quoteVersion)?.decision ?? null,
+  });
   return {
     id: order.id,
     number: order.number,
@@ -50,6 +90,7 @@ export function toServiceOrderOutput(order: ServiceOrder): ServiceOrderOutput {
       serviceId: item.serviceId,
       name: item.name,
       price: item.price.toDecimal(),
+      ...itemQuote(item.quoteVersion),
     })),
     parts: order.partItems.map((item) => ({
       partId: item.partId,
@@ -57,7 +98,10 @@ export function toServiceOrderOutput(order: ServiceOrder): ServiceOrderOutput {
       unitPrice: item.unitPrice.toDecimal(),
       quantity: item.quantity.value,
       total: item.total.toDecimal(),
+      ...itemQuote(item.quoteVersion),
     })),
+    approvedTotal: order.approvedTotal.toDecimal(),
+    totalIfApproved: order.totalIfApproved.toDecimal(),
     quote: quote && {
       version: quote.version,
       total: quote.total.toDecimal(),

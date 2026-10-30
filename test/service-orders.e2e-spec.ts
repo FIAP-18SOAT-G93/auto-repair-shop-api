@@ -7,6 +7,7 @@ import { AppModule } from '../src/app.module.js';
 import { Role } from '../src/modules/auth/domain/role.js';
 import { generateCpf } from '../src/modules/customer/testing/document-generator.js';
 import { generatePlate } from '../src/modules/customer/testing/plate-generator.js';
+import type { OpenServiceOrderInput } from '../src/modules/service-order/application/open-service-order.use-case.js';
 import { PrismaTransactionHost } from '../src/shared/infrastructure/database/prisma-transaction-host.js';
 import { removeHelperUsers, tokenFor } from './helpers/auth.js';
 
@@ -25,6 +26,8 @@ interface OrderBody {
     rejectionReason: string | null;
   } | null;
   history: { to: string }[];
+  approvedTotal: number;
+  totalIfApproved: number;
 }
 
 describe('Ordens de serviço (e2e)', () => {
@@ -52,7 +55,9 @@ describe('Ordens de serviço (e2e)', () => {
     },
   });
 
-  async function openOrder(body = newCustomerAndVehicle()): Promise<OrderBody> {
+  async function openOrder(
+    body: OpenServiceOrderInput = newCustomerAndVehicle(),
+  ): Promise<OrderBody> {
     const response = await api()
       .post('/service-orders')
       .set(auth(attendant))
@@ -65,8 +70,10 @@ describe('Ordens de serviço (e2e)', () => {
     return order;
   }
 
-  async function orderInDiagnosis(): Promise<OrderBody> {
-    const order = await openOrder();
+  async function orderInDiagnosis(
+    body = newCustomerAndVehicle(),
+  ): Promise<OrderBody> {
+    const order = await openOrder(body);
     await api()
       .post(`/service-orders/${order.id}/start-diagnosis`)
       .set(auth(mechanic))
@@ -74,8 +81,11 @@ describe('Ordens de serviço (e2e)', () => {
     return order;
   }
 
-  async function orderAwaitingApproval(part = partId): Promise<OrderBody> {
-    const order = await orderInDiagnosis();
+  async function orderAwaitingApproval(
+    part = partId,
+    body = newCustomerAndVehicle(),
+  ): Promise<OrderBody> {
+    const order = await orderInDiagnosis(body);
     await api()
       .post(`/service-orders/${order.id}/services`)
       .set(auth(mechanic))
@@ -103,9 +113,36 @@ describe('Ordens de serviço (e2e)', () => {
       .set(auth(attendant))
       .send(body);
 
-  const stockOf = async () =>
-    (await api().get(`/parts/${partId}`).set(auth(manager)).expect(200)).body
+  async function orderInExecution(
+    body = newCustomerAndVehicle(),
+  ): Promise<OrderBody> {
+    const order = await orderAwaitingApproval(partId, body);
+    const response = await decide(order, 'approve', { version: 1 }).expect(200);
+    return response.body as OrderBody;
+  }
+
+  const command = (order: OrderBody, action: string, token: string) =>
+    api().post(`/service-orders/${order.id}/${action}`).set(auth(token));
+
+  const stockOf = async (id = partId) =>
+    (await api().get(`/parts/${id}`).set(auth(manager)).expect(200)).body
       .quantity as number;
+
+  async function createPart(quantity: number): Promise<string> {
+    const response = await api()
+      .post('/parts')
+      .set(auth(manager))
+      .send({
+        name: `Peça OS E2E ${randomUUID()}`,
+        type: 'PART',
+        price: 50,
+        quantity,
+      })
+      .expect(201);
+    const id = response.body.id as string;
+    extraPartIds.push(id);
+    return id;
+  }
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -136,7 +173,7 @@ describe('Ordens de serviço (e2e)', () => {
         name: `Peça OS E2E ${randomUUID()}`,
         type: 'PART',
         price: 149.9,
-        quantity: 20,
+        quantity: 50,
       })
       .expect(201);
     partId = part.body.id as string;
@@ -398,6 +435,195 @@ describe('Ordens de serviço (e2e)', () => {
         .set(auth(mechanic))
         .send({ version: 1 })
         .expect(403);
+    });
+  });
+
+  describe('reparo adicional', () => {
+    it('gera a versão 2 do orçamento, dá baixa e volta para Aguardando aprovação', async () => {
+      const order = await orderInExecution();
+      const stockBefore = await stockOf();
+
+      const response = await command(order, 'additional-repair', mechanic)
+        .send({ services: [serviceId], parts: [{ partId, quantity: 1 }] })
+        .expect(200);
+
+      const body = response.body as OrderBody;
+      expect(body.status).toBe('AWAITING_APPROVAL');
+      expect(body.quote).toMatchObject({
+        version: 2,
+        total: 239.8,
+        decision: null,
+      });
+      expect(body.services).toHaveLength(2);
+      expect(body.approvedTotal).toBe(389.7);
+      expect(body.totalIfApproved).toBe(629.5);
+      expect(await stockOf()).toBe(stockBefore - 1);
+    });
+
+    it('a rejeição do reparo adicional estorna as peças dele e o serviço aprovado continua até a entrega', async () => {
+      const order = await orderInExecution();
+      const stockBefore = await stockOf();
+      await command(order, 'additional-repair', mechanic)
+        .send({ parts: [{ partId, quantity: 1 }] })
+        .expect(200);
+
+      const rejected = await decide(order, 'reject', {
+        version: 2,
+        reason: 'Fica para a próxima revisão',
+      }).expect(200);
+
+      expect((rejected.body as OrderBody).status).toBe('IN_EXECUTION');
+      expect((rejected.body as OrderBody).approvedTotal).toBe(389.7);
+      expect(await stockOf()).toBe(stockBefore);
+      await command(order, 'finish', mechanic).expect(200);
+      await command(order, 'deliver', attendant).expect(200);
+    });
+
+    it('sem saldo de uma das peças, desfaz a baixa das outras', async () => {
+      const order = await orderInExecution();
+      const scarcePartId = await createPart(1);
+      const stockBefore = await stockOf();
+
+      await command(order, 'additional-repair', mechanic)
+        .send({
+          parts: [
+            { partId, quantity: 1 },
+            { partId: scarcePartId, quantity: 5 },
+          ],
+        })
+        .expect(409);
+
+      expect(await stockOf()).toBe(stockBefore);
+      expect(await stockOf(scarcePartId)).toBe(1);
+      const detail = await api()
+        .get(`/service-orders/${order.id}`)
+        .set(auth(mechanic))
+        .expect(200);
+      expect((detail.body as OrderBody).status).toBe('IN_EXECUTION');
+      expect((detail.body as OrderBody).parts).toHaveLength(1);
+    });
+
+    it('sem nenhum item, o domínio responde 400', async () => {
+      const order = await orderInExecution();
+
+      await command(order, 'additional-repair', mechanic).send({}).expect(400);
+    });
+
+    it.each<[string, Record<string, unknown>]>([
+      ['serviço com id inválido', { services: ['nao-e-uuid'] }],
+      ['peça sem quantidade', { parts: [{ partId: randomUUID() }] }],
+      [
+        'campo desconhecido na peça',
+        { parts: [{ partId: randomUUID(), quantity: 1, price: 10 }] },
+      ],
+    ])('responde 400 para %s, antes do caso de uso', async (_case, body) => {
+      const order = { id: randomUUID() } as OrderBody;
+
+      await command(order, 'additional-repair', mechanic)
+        .send(body)
+        .expect(400);
+    });
+  });
+
+  describe('finalização e entrega', () => {
+    it('finaliza, entrega e libera o veículo para uma nova OS', async () => {
+      const body = newCustomerAndVehicle();
+      const order = await orderInExecution(body);
+
+      const finished = await command(order, 'finish', mechanic).expect(200);
+      const delivered = await command(order, 'deliver', attendant).expect(200);
+
+      expect((finished.body as OrderBody).status).toBe('FINISHED');
+      expect((delivered.body as OrderBody).status).toBe('DELIVERED');
+      await openOrder({
+        customer: { document: body.customer.document },
+        vehicle: { plate: body.vehicle.plate },
+      });
+    });
+
+    it('entrega o veículo de uma OS com o orçamento rejeitado', async () => {
+      const order = await orderAwaitingApproval();
+      await decide(order, 'reject', { version: 1 }).expect(200);
+
+      await command(order, 'deliver', attendant).expect(200);
+    });
+
+    it('não entrega o veículo de uma OS em execução', async () => {
+      const order = await orderInExecution();
+
+      await command(order, 'deliver', attendant).expect(409);
+    });
+
+    it('o atendente não finaliza e o mecânico não entrega', async () => {
+      const order = { id: randomUUID() } as OrderBody;
+
+      await command(order, 'finish', attendant).expect(403);
+      await command(order, 'deliver', mechanic).expect(403);
+    });
+  });
+
+  describe('listagem', () => {
+    const todayInBrasilia = () =>
+      new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    async function twoOrdersOfOneCustomer() {
+      const body = newCustomerAndVehicle();
+      const first = await openOrder(body);
+      const second = await orderInDiagnosis({
+        customer: { document: body.customer.document, name: 'Cliente OS E2E' },
+        vehicle: newCustomerAndVehicle().vehicle,
+      });
+      return { first, second, customerId: first.customerId };
+    }
+
+    const list = (query: Record<string, string | number>) =>
+      api().get('/service-orders').query(query).set(auth(mechanic));
+
+    it('lista as OS do cliente em resumo, da mais recente para a mais antiga', async () => {
+      const { first, second, customerId } = await twoOrdersOfOneCustomer();
+
+      const response = await list({ customerId }).expect(200);
+
+      expect(response.body).toMatchObject({ total: 2, page: 1, pageSize: 20 });
+      const items = response.body.items as OrderBody[];
+      expect(items.map((order) => order.id)).toEqual([second.id, first.id]);
+      expect(items[0]).not.toHaveProperty('services');
+    });
+
+    it('filtra pelo status e pelo período de abertura', async () => {
+      const { second, customerId } = await twoOrdersOfOneCustomer();
+      const today = todayInBrasilia();
+
+      const inDiagnosis = await list({
+        customerId,
+        status: 'IN_DIAGNOSIS',
+      }).expect(200);
+      const openedToday = await list({
+        customerId,
+        openedFrom: today,
+        openedTo: today,
+      }).expect(200);
+      const openedLongAgo = await list({
+        customerId,
+        openedTo: '2000-01-01',
+      }).expect(200);
+
+      expect(
+        (inDiagnosis.body.items as OrderBody[]).map((order) => order.id),
+      ).toEqual([second.id]);
+      expect(openedToday.body.total).toBe(2);
+      expect(openedLongAgo.body.total).toBe(0);
+    });
+
+    it.each<[string, Record<string, string | number>]>([
+      ['status desconhecido', { status: 'OPEN' }],
+      ['customerId inválido', { customerId: 'nao-e-uuid' }],
+      ['data inexistente', { openedFrom: '2026-02-30' }],
+      ['data fora do formato', { openedTo: '31/10/2026' }],
+      ['página grande demais', { pageSize: 101 }],
+      ['filtro desconhecido', { plate: 'ABC1234' }],
+    ])('responde 400 para %s', async (_case, query) => {
+      await list(query).expect(400);
     });
   });
 

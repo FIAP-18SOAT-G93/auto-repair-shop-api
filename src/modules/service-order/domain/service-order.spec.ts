@@ -181,6 +181,13 @@ describe('ServiceOrder', () => {
       expect(order.currentQuote?.isPending).toBe(true);
     });
 
+    it('antes da decisão, nada está aprovado e o total se aprovado é o do orçamento', () => {
+      const order = awaitingApproval();
+
+      expect(order.approvedTotal.cents).toBe(0);
+      expect(order.totalIfApproved.toDecimal()).toBe(389.7);
+    });
+
     it('registra o evento QuoteGenerated com o total', () => {
       const order = awaitingApproval();
 
@@ -310,7 +317,7 @@ describe('ServiceOrder', () => {
       expect(order.currentQuote?.isPending).toBe(true);
     });
 
-    it('rejeitar o reparo adicional estorna só as peças dele', () => {
+    it('rejeitar o reparo adicional estorna só as peças dele e retoma a execução', () => {
       const order = withAdditionalRepair();
       order.pullDomainEvents();
 
@@ -320,14 +327,53 @@ describe('ServiceOrder', () => {
       expect(event?.partsToReverse).toEqual([
         { partId: 'part-fluid', quantity: Quantity.of(1) },
       ]);
+      expect(order.status).toBe('IN_EXECUTION');
+      expect(order.currentQuote?.decision).toBe('REJECTED');
       expect(order.approvedTotal.toDecimal()).toBe(389.7);
-      expect(order.getExecutionTime()).toBe(1 * HOUR);
+    });
+
+    it('depois da rejeição do reparo adicional, conclui o serviço aprovado e conta todo o tempo de execução', () => {
+      const order = withAdditionalRepair();
+      order.reject(2, at('13:00'));
+
+      order.finish(at('14:00'));
+
+      expect(order.status).toBe('FINISHED');
+      expect(order.getExecutionTime()).toBe(2 * HOUR);
+    });
+
+    it('depois da rejeição do reparo adicional, aceita outro na versão 3', () => {
+      const order = withAdditionalRepair();
+      order.reject(2, at('13:00'));
+
+      order.registerAdditionalRepair({ services: [alignment] }, at('13:30'));
+
+      expect(order.currentQuote?.version).toBe(3);
+      expect(order.currentQuote?.total.toDecimal()).toBe(89.9);
+    });
+
+    it('informa o total aprovado e o total se o orçamento pendente for aprovado', () => {
+      const order = withAdditionalRepair();
+
+      expect(order.approvedTotal.toDecimal()).toBe(389.7);
+      expect(order.totalIfApproved.toDecimal()).toBe(601.7);
+
+      order.reject(2, at('13:00'));
+
+      expect(order.totalIfApproved.toDecimal()).toBe(389.7);
     });
 
     it('exige ao menos um item', () => {
       expect(() =>
         inExecution().registerAdditionalRepair({}, at('12:00')),
       ).toThrow(InvalidServiceOrderError);
+    });
+
+    it('informa se aceita reparo adicional, antes de qualquer efeito colateral', () => {
+      expect(() => inExecution().assertAcceptsAdditionalRepair()).not.toThrow();
+      expect(() => awaitingApproval().assertAcceptsAdditionalRepair()).toThrow(
+        'Não é possível registrar reparo adicional: a OS está "Aguardando aprovação"',
+      );
     });
 
     it('só é possível durante a execução', () => {

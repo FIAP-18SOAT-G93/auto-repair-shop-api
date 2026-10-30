@@ -1,7 +1,22 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PickType } from '@nestjs/swagger';
 import { ServiceOrderStatus } from '../../domain/service-order-status.js';
 
-class ServiceItemResponseDto {
+class ItemQuoteResponseDto {
+  @ApiProperty({
+    example: 1,
+    description: 'Versão do orçamento em que o item entrou',
+  })
+  quoteVersion!: number;
+
+  @ApiProperty({
+    enum: ['APPROVED', 'REJECTED'],
+    nullable: true,
+    description: 'Decisão do orçamento do item',
+  })
+  decision!: 'APPROVED' | 'REJECTED' | null;
+}
+
+class ServiceItemResponseDto extends ItemQuoteResponseDto {
   @ApiProperty({ format: 'uuid' })
   serviceId!: string;
 
@@ -12,7 +27,7 @@ class ServiceItemResponseDto {
   price!: number;
 }
 
-class PartItemResponseDto {
+class PartItemResponseDto extends ItemQuoteResponseDto {
   @ApiProperty({ format: 'uuid' })
   partId!: string;
 
@@ -92,9 +107,48 @@ export class ServiceOrderResponseDto {
   @ApiProperty({ type: [PartItemResponseDto] })
   parts!: PartItemResponseDto[];
 
+  @ApiProperty({
+    example: 389.7,
+    description: 'Soma dos orçamentos aprovados: o valor a pagar',
+  })
+  approvedTotal!: number;
+
+  @ApiProperty({
+    example: 601.7,
+    description: 'Total aprovado mais o orçamento pendente, se houver',
+  })
+  totalIfApproved!: number;
+
   @ApiProperty({ type: QuoteResponseDto, nullable: true })
   quote!: QuoteResponseDto | null;
 
   @ApiProperty({ type: [StatusChangeResponseDto] })
   history!: StatusChangeResponseDto[];
+}
+
+export class ServiceOrderSummaryResponseDto extends PickType(
+  ServiceOrderResponseDto,
+  [
+    'id',
+    'number',
+    'customerId',
+    'vehicleId',
+    'status',
+    'statusLabel',
+    'openedAt',
+  ] as const,
+) {}
+
+export class ServiceOrderPageResponseDto {
+  @ApiProperty({ type: [ServiceOrderSummaryResponseDto] })
+  items!: ServiceOrderSummaryResponseDto[];
+
+  @ApiProperty({ example: 42 })
+  total!: number;
+
+  @ApiProperty({ example: 1 })
+  page!: number;
+
+  @ApiProperty({ example: 20 })
+  pageSize!: number;
 }
