@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PickType } from '@nestjs/swagger';
 import { ServiceOrderStatus } from '../../domain/service-order-status.js';
 
 class ServiceItemResponseDto {
@@ -97,4 +97,31 @@ export class ServiceOrderResponseDto {
 
   @ApiProperty({ type: [StatusChangeResponseDto] })
   history!: StatusChangeResponseDto[];
+}
+
+export class ServiceOrderSummaryResponseDto extends PickType(
+  ServiceOrderResponseDto,
+  [
+    'id',
+    'number',
+    'customerId',
+    'vehicleId',
+    'status',
+    'statusLabel',
+    'openedAt',
+  ] as const,
+) {}
+
+export class ServiceOrderPageResponseDto {
+  @ApiProperty({ type: [ServiceOrderSummaryResponseDto] })
+  items!: ServiceOrderSummaryResponseDto[];
+
+  @ApiProperty({ example: 42 })
+  total!: number;
+
+  @ApiProperty({ example: 1 })
+  page!: number;
+
+  @ApiProperty({ example: 20 })
+  pageSize!: number;
 }
