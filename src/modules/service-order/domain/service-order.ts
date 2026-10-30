@@ -124,7 +124,13 @@ export class ServiceOrder extends AggregateRoot {
     const quote = this.pendingQuoteFor(version, 'rejeitar o orçamento');
     const rejected = quote.reject(now, reason);
     this.replaceLatestQuote(rejected);
-    this.moveTo(ServiceOrderStatus.FINISHED, now);
+    const isAdditionalRepair = quote.version > 1;
+    this.moveTo(
+      isAdditionalRepair
+        ? ServiceOrderStatus.IN_EXECUTION
+        : ServiceOrderStatus.FINISHED,
+      now,
+    );
 
     const partsToReverse = this.partItems
       .filter((item) => item.quoteVersion === quote.version)
@@ -225,6 +231,13 @@ export class ServiceOrder extends AggregateRoot {
     return this.props.quotes
       .filter((quote) => quote.decision === 'APPROVED')
       .reduce((sum, quote) => sum.add(quote.total), Money.zero());
+  }
+
+  get totalIfApproved(): Money {
+    const pending = this.currentQuote?.isPending
+      ? this.currentQuote.total
+      : Money.zero();
+    return this.approvedTotal.add(pending);
   }
 
   private get nextQuoteVersion(): number {
