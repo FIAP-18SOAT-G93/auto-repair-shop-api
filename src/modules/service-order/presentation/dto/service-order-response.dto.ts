@@ -41,6 +41,16 @@ class QuoteResponseDto {
 
   @ApiProperty({ enum: ['APPROVED', 'REJECTED'], nullable: true })
   decision!: 'APPROVED' | 'REJECTED' | null;
+
+  @ApiProperty({ type: Date, nullable: true })
+  decidedAt!: Date | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'Valor acima do esperado',
+  })
+  rejectionReason!: string | null;
 }
 
 class StatusChangeResponseDto {
