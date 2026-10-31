@@ -1,5 +1,6 @@
 import type { ServiceOrderStatus } from './service-order-status.js';
 import type { ServiceOrder } from './service-order.js';
+import type { TrackingCode } from './tracking-code.js';
 
 export interface ServiceOrderFilter {
   status?: ServiceOrderStatus;
@@ -18,6 +19,7 @@ export abstract class ServiceOrderRepository {
   abstract save(order: ServiceOrder): Promise<void>;
   abstract findById(id: string): Promise<ServiceOrder | null>;
   abstract findByIdForUpdate(id: string): Promise<ServiceOrder | null>;
+  abstract findByTrackingCode(code: TrackingCode): Promise<ServiceOrder | null>;
   abstract findOpenByVehicle(vehicleId: string): Promise<ServiceOrder | null>;
   abstract existsOpenForCustomer(customerId: string): Promise<boolean>;
   abstract list(

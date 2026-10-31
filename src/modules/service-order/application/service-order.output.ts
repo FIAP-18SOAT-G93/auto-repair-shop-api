@@ -13,6 +13,7 @@ interface ItemQuote {
 export interface ServiceOrderOutput {
   id: string;
   number: number;
+  trackingCode: string;
   customerId: string;
   vehicleId: string;
   status: ServiceOrderStatus;
@@ -81,6 +82,7 @@ export function toServiceOrderOutput(order: ServiceOrder): ServiceOrderOutput {
   return {
     id: order.id,
     number: order.number,
+    trackingCode: order.trackingCode.toString(),
     customerId: order.customerId,
     vehicleId: order.vehicleId,
     status: order.status,
