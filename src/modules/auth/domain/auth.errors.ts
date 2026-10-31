@@ -10,6 +10,12 @@ export class InvalidCredentialsError extends AuthenticationError {
   }
 }
 
+export class InvalidCustomerCredentialsError extends AuthenticationError {
+  constructor() {
+    super('Documento ou código de acompanhamento inválidos');
+  }
+}
+
 export class EmailAlreadyInUseError extends ConflictError {
   constructor() {
     super('Já existe um usuário com este e-mail');
