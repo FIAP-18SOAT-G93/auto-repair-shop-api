@@ -6,6 +6,12 @@ import {
 
 export class InvalidServiceOrderError extends ValidationError {}
 
+export class InvalidTrackingCodeError extends ValidationError {
+  constructor() {
+    super('Código de acompanhamento inválido');
+  }
+}
+
 export class InvalidStatusTransitionError extends ConflictError {
   constructor(from: string, to: string) {
     super(`A OS não pode passar de "${from}" para "${to}"`);
