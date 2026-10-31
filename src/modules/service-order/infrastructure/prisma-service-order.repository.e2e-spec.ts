@@ -237,6 +237,24 @@ describe('PrismaServiceOrderRepository (integração)', () => {
     });
   });
 
+  it('lista as OS finalizadas e entregues, sem as que estão em andamento', async () => {
+    const inExecution = await newOrder();
+    progressToExecution(inExecution);
+    const finished = await newOrder();
+    progressToExecution(finished);
+    finished.finish(at('13:00'));
+    const delivered = await newOrder();
+    deliver(delivered);
+    for (const order of [inExecution, finished, delivered]) {
+      await orders.save(order);
+    }
+
+    const ids = (await orders.listFinished()).map((order) => order.id);
+
+    expect(ids).toEqual(expect.arrayContaining([finished.id, delivered.id]));
+    expect(ids).not.toContain(inExecution.id);
+  });
+
   it('responde se o cliente tem OS aberta', async () => {
     const customerId = randomUUID();
     const order = await newOrder(randomUUID(), customerId);
