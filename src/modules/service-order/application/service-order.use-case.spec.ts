@@ -165,7 +165,7 @@ describe('Casos de uso da OS', () => {
         number: 1,
         status: 'RECEIVED',
         statusLabel: 'Recebida',
-        quote: null,
+        quotes: [],
       });
       expect(directory.customers.size).toBe(1);
       expect(directory.vehicles.size).toBe(1);
@@ -419,11 +419,9 @@ describe('Casos de uso da OS', () => {
 
       const order = await get.execute(id);
       expect(order.status).toBe('AWAITING_APPROVAL');
-      expect(order.quote).toMatchObject({
-        version: 1,
-        total: 389.7,
-        decision: null,
-      });
+      expect(order.quotes).toEqual([
+        expect.objectContaining({ version: 1, total: 389.7, decision: null }),
+      ]);
       expect(notifications.quotesAvailable).toHaveLength(1);
       expect(notifications.quotesAvailable[0]).toMatchObject({
         customerId: order.customerId,
@@ -471,8 +469,8 @@ describe('Casos de uso da OS', () => {
       const order = await approve.execute({ serviceOrderId: id, version: 1 });
 
       expect(order.status).toBe('IN_EXECUTION');
-      expect(order.quote?.decision).toBe('APPROVED');
-      expect(order.quote?.decidedAt).toBeInstanceOf(Date);
+      expect(order.quotes[0]?.decision).toBe('APPROVED');
+      expect(order.quotes[0]?.decidedAt).toBeInstanceOf(Date);
       expect(stock.parts.get('part-pads')?.quantity.value).toBe(1);
     });
 
@@ -507,10 +505,12 @@ describe('Casos de uso da OS', () => {
       });
 
       expect(order.status).toBe('FINISHED');
-      expect(order.quote).toMatchObject({
-        decision: 'REJECTED',
-        rejectionReason: 'Valor acima do esperado',
-      });
+      expect(order.quotes).toEqual([
+        expect.objectContaining({
+          decision: 'REJECTED',
+          rejectionReason: 'Valor acima do esperado',
+        }),
+      ]);
       expect(order.history.map((change) => change.to)).not.toContain(
         'IN_EXECUTION',
       );
@@ -556,11 +556,15 @@ describe('Casos de uso da OS', () => {
       const order = await registerAdditionalRepair.execute(brakesAndFluid(id));
 
       expect(order.status).toBe('AWAITING_APPROVAL');
-      expect(order.quote).toMatchObject({
-        version: 2,
-        total: 212,
-        decision: null,
-      });
+      expect(order.quotes).toEqual([
+        expect.objectContaining({
+          version: 1,
+          total: 389.7,
+          decision: 'APPROVED',
+          decidedAt: expect.any(Date),
+        }),
+        expect.objectContaining({ version: 2, total: 212, decision: null }),
+      ]);
       expect(order.services).toHaveLength(2);
       expect(order.parts).toHaveLength(2);
       expect(stock.parts.get('part-fluid')?.quantity.value).toBe(2);

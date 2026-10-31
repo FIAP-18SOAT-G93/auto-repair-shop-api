@@ -33,14 +33,14 @@ export interface ServiceOrderOutput {
   } & ItemQuote)[];
   approvedTotal: number;
   totalIfApproved: number;
-  quote: {
+  quotes: {
     version: number;
     total: number;
     generatedAt: Date;
     decision: QuoteDecision | null;
     decidedAt: Date | null;
     rejectionReason: string | null;
-  } | null;
+  }[];
   history: {
     from: ServiceOrderStatus | null;
     to: ServiceOrderStatus;
@@ -73,7 +73,6 @@ export function toServiceOrderSummary(
 }
 
 export function toServiceOrderOutput(order: ServiceOrder): ServiceOrderOutput {
-  const quote = order.currentQuote;
   const itemQuote = (quoteVersion: number): ItemQuote => ({
     quoteVersion,
     decision:
@@ -104,14 +103,14 @@ export function toServiceOrderOutput(order: ServiceOrder): ServiceOrderOutput {
     })),
     approvedTotal: order.approvedTotal.toDecimal(),
     totalIfApproved: order.totalIfApproved.toDecimal(),
-    quote: quote && {
+    quotes: order.quotes.map((quote) => ({
       version: quote.version,
       total: quote.total.toDecimal(),
       generatedAt: quote.generatedAt,
       decision: quote.decision,
       decidedAt: quote.decidedAt,
       rejectionReason: quote.rejectionReason,
-    },
+    })),
     history: order.history.entries.map((change) => ({
       from: change.from,
       to: change.to,
