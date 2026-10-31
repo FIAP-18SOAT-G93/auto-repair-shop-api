@@ -4,7 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Role } from '../domain/role.js';
+import { isTeamRole, type Role } from '../domain/role.js';
 import type { AuthenticatedUser } from './authenticated-user.js';
 import { ROLES_KEY } from './decorators.js';
 
@@ -17,10 +17,10 @@ export class RolesGuard implements CanActivate {
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
     );
-    if (!requiredRoles) return true;
     const user = context
       .switchToHttp()
       .getRequest<{ user?: AuthenticatedUser }>().user;
+    if (!requiredRoles) return !user || isTeamRole(user.role);
     if (!user) return false;
     return requiredRoles.includes(user.role);
   }

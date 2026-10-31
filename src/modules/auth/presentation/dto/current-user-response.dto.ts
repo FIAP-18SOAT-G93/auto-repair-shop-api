@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Role } from '../../domain/role.js';
+import { TeamRole } from '../../domain/role.js';
 
 export class CurrentUserResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -11,6 +11,6 @@ export class CurrentUserResponseDto {
   @ApiProperty({ example: 'gestor@oficina.com' })
   email!: string;
 
-  @ApiProperty({ enum: Role, example: Role.MANAGER })
-  role!: Role;
+  @ApiProperty({ enum: TeamRole, example: TeamRole.MANAGER })
+  role!: TeamRole;
 }
