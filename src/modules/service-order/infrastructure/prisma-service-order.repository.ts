@@ -114,6 +114,18 @@ export class PrismaServiceOrderRepository implements ServiceOrderRepository {
     return { items: records.map(toDomain), total };
   }
 
+  async listFinished(): Promise<ServiceOrder[]> {
+    const records = await this.host.client.serviceOrder.findMany({
+      where: {
+        status: {
+          in: [ServiceOrderStatus.FINISHED, ServiceOrderStatus.DELIVERED],
+        },
+      },
+      include: INCLUDE,
+    });
+    return records.map(toDomain);
+  }
+
   private async saveRoot(order: ServiceOrder): Promise<void> {
     const data = { status: order.status, deliveredAt: deliveredAtOf(order) };
     try {

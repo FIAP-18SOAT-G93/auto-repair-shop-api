@@ -27,6 +27,7 @@ import {
 import { AddPartToOrderUseCase } from './add-part-to-order.use-case.js';
 import { AddServiceToOrderUseCase } from './add-service-to-order.use-case.js';
 import { ApproveQuoteUseCase } from './approve-quote.use-case.js';
+import { AverageExecutionTimeQuery } from './average-execution-time.query.js';
 import { ConcludeDiagnosisUseCase } from './conclude-diagnosis.use-case.js';
 import { DeliverServiceOrderUseCase } from './deliver-service-order.use-case.js';
 import { FinishServiceOrderUseCase } from './finish-service-order.use-case.js';
@@ -142,6 +143,7 @@ function setup() {
     deliver: new DeliverServiceOrderUseCase(orders, unitOfWork),
     list: new ListServiceOrdersUseCase(orders),
     verifyAccess: new VerifyCustomerAccessUseCase(orders, directory),
+    averageExecutionTime: new AverageExecutionTimeQuery(orders),
     inDiagnosis,
     awaitingApproval,
     inExecution: async () => {
@@ -954,6 +956,146 @@ describe('Casos de uso da OS', () => {
         }),
       ).rejects.toThrow(ServiceOrderNotFoundError);
       expect(stock.parts.get('part-pads')?.quantity.value).toBe(1);
+    });
+  });
+
+  describe('AverageExecutionTimeQuery', () => {
+    const start = new Date('2026-10-30T08:00:00Z').getTime();
+    const at = (minutes: number) => vi.setSystemTime(start + minutes * 60_000);
+    let plates = 0;
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      at(0);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    async function approvedWith(
+      app: ReturnType<typeof setup>,
+      serviceIds: string[],
+    ): Promise<string> {
+      plates += 1;
+      const order = await app.open.execute({
+        customer: { document: '529.982.247-25', name: 'Maria da Silva' },
+        vehicle: {
+          plate: `TST${plates}A00`,
+          brand: 'Fiat',
+          model: 'Uno',
+          year: 2015,
+        },
+      });
+      await app.startDiagnosis.execute(order.id);
+      for (const serviceId of serviceIds) {
+        await app.addService.execute({ serviceOrderId: order.id, serviceId });
+      }
+      await app.concludeDiagnosis.execute(order.id);
+      await app.approve.execute({ serviceOrderId: order.id, version: 1 });
+      return order.id;
+    }
+
+    async function finishedAfter(
+      app: ReturnType<typeof setup>,
+      minutes: number,
+      serviceIds = ['service-alignment'],
+    ): Promise<void> {
+      at(0);
+      const id = await approvedWith(app, serviceIds);
+      at(minutes);
+      await app.finish.execute(id);
+    }
+
+    it('sem OS finalizadas, não há média', async () => {
+      const app = setup();
+
+      expect(await app.averageExecutionTime.execute()).toEqual({
+        overall: { averageMinutes: null, orders: 0 },
+        byService: [],
+      });
+    });
+
+    it('calcula a média geral das OS finalizadas, em minutos', async () => {
+      const app = setup();
+      await finishedAfter(app, 30);
+      await finishedAfter(app, 60);
+
+      const { overall } = await app.averageExecutionTime.execute();
+
+      expect(overall).toEqual({ averageMinutes: 45, orders: 2 });
+    });
+
+    it('deixa de fora a OS com o orçamento inicial rejeitado e a que ainda está em execução', async () => {
+      const app = setup();
+      await finishedAfter(app, 40);
+      await approvedWith(app, ['service-alignment']);
+      const rejected = await app.inDiagnosis();
+      await app.addService.execute({
+        serviceOrderId: rejected,
+        serviceId: 'service-alignment',
+      });
+      await app.concludeDiagnosis.execute(rejected);
+      await app.reject.execute({ serviceOrderId: rejected, version: 1 });
+
+      const { overall } = await app.averageExecutionTime.execute();
+
+      expect(overall).toEqual({ averageMinutes: 40, orders: 1 });
+    });
+
+    it('agrupa por serviço executado, em ordem alfabética', async () => {
+      const app = setup();
+      await finishedAfter(app, 30);
+      await finishedAfter(app, 90, ['service-alignment', 'service-brakes']);
+
+      const { byService } = await app.averageExecutionTime.execute();
+
+      expect(byService).toEqual([
+        {
+          serviceId: 'service-alignment',
+          name: 'Alinhamento',
+          averageMinutes: 60,
+          orders: 2,
+        },
+        {
+          serviceId: 'service-brakes',
+          name: 'Revisão de freios',
+          averageMinutes: 90,
+          orders: 1,
+        },
+      ]);
+    });
+
+    it('não atribui tempo ao serviço de um reparo adicional rejeitado', async () => {
+      const app = setup();
+      const id = await approvedWith(app, ['service-alignment']);
+      at(10);
+      await app.registerAdditionalRepair.execute({
+        serviceOrderId: id,
+        services: ['service-brakes'],
+      });
+      at(20);
+      await app.reject.execute({ serviceOrderId: id, version: 2 });
+      at(50);
+      await app.finish.execute(id);
+
+      const result = await app.averageExecutionTime.execute();
+
+      expect(result.overall).toEqual({ averageMinutes: 40, orders: 1 });
+      expect(result.byService.map((service) => service.name)).toEqual([
+        'Alinhamento',
+      ]);
+    });
+
+    it('conta uma vez o serviço que aparece duas vezes na mesma OS', async () => {
+      const app = setup();
+      await finishedAfter(app, 30, ['service-alignment', 'service-alignment']);
+
+      const { byService } = await app.averageExecutionTime.execute();
+
+      expect(byService).toEqual([
+        expect.objectContaining({ averageMinutes: 30, orders: 1 }),
+      ]);
     });
   });
 });

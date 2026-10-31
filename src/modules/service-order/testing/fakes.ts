@@ -27,6 +27,7 @@ import type {
   CatalogService,
   ServiceCatalog,
 } from '../application/ports/service-catalog.js';
+import { ServiceOrderStatus } from '../domain/service-order-status.js';
 import { VehicleHasOpenServiceOrderError } from '../domain/service-order.errors.js';
 import { ServiceOrder } from '../domain/service-order.js';
 import type { TrackingCode } from '../domain/tracking-code.js';
@@ -97,6 +98,16 @@ export class InMemoryServiceOrderRepository implements ServiceOrderRepository {
       items: matches.slice(start, start + pageSize).map(copy),
       total: matches.length,
     };
+  }
+
+  async listFinished(): Promise<ServiceOrder[]> {
+    return [...this.orders.values()]
+      .filter(
+        (o) =>
+          o.status === ServiceOrderStatus.FINISHED ||
+          o.status === ServiceOrderStatus.DELIVERED,
+      )
+      .map(copy);
   }
 
   private open(): ServiceOrder[] {

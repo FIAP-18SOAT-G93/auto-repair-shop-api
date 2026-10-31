@@ -376,6 +376,26 @@ describe('ServiceOrder', () => {
       expect(order.totalIfApproved.toDecimal()).toBe(389.7);
     });
 
+    it('não tem tempo de execução enquanto aguarda a aprovação do reparo adicional', () => {
+      expect(withAdditionalRepair().getExecutionTime()).toBeNull();
+    });
+
+    it('lista como executados só os serviços de orçamentos aprovados', () => {
+      const pending = withAdditionalRepair();
+      const approved = withAdditionalRepair();
+      const rejected = withAdditionalRepair();
+
+      approved.approve(2, at('13:00'));
+      rejected.reject(2, at('13:00'));
+
+      const names = (order: ServiceOrder) =>
+        order.approvedServiceItems.map((item) => item.name);
+      expect(names(pending)).toEqual(['Alinhamento']);
+      expect(names(approved)).toEqual(['Alinhamento', 'Revisão de freios']);
+      expect(names(rejected)).toEqual(['Alinhamento']);
+      expect(awaitingApproval().approvedServiceItems).toHaveLength(0);
+    });
+
     it('exige ao menos um item', () => {
       expect(() =>
         inExecution().registerAdditionalRepair({}, at('12:00')),

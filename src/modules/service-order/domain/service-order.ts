@@ -235,6 +235,17 @@ export class ServiceOrder extends AggregateRoot {
     return this.props.quotes;
   }
 
+  get approvedServiceItems(): readonly ServiceItem[] {
+    const approvedVersions = new Set(
+      this.props.quotes
+        .filter((quote) => quote.decision === 'APPROVED')
+        .map((quote) => quote.version),
+    );
+    return this.props.serviceItems.filter((item) =>
+      approvedVersions.has(item.quoteVersion),
+    );
+  }
+
   get currentQuote(): Quote | null {
     return this.props.quotes.at(-1) ?? null;
   }

@@ -6,6 +6,7 @@ import { CustomerModule } from '../customer/customer.module.js';
 import { AddPartToOrderUseCase } from './application/add-part-to-order.use-case.js';
 import { AddServiceToOrderUseCase } from './application/add-service-to-order.use-case.js';
 import { ApproveQuoteUseCase } from './application/approve-quote.use-case.js';
+import { AverageExecutionTimeQuery } from './application/average-execution-time.query.js';
 import { ConcludeDiagnosisUseCase } from './application/conclude-diagnosis.use-case.js';
 import { DeliverServiceOrderUseCase } from './application/deliver-service-order.use-case.js';
 import { FinishServiceOrderUseCase } from './application/finish-service-order.use-case.js';
@@ -24,6 +25,7 @@ import { CustomerModuleDirectory } from './infrastructure/customer-directory.ada
 import { CatalogModulePartStock } from './infrastructure/part-stock.adapter.js';
 import { CatalogModuleServiceCatalog } from './infrastructure/service-catalog.adapter.js';
 import { CustomerServiceOrdersController } from './presentation/customer-service-orders.controller.js';
+import { MetricsController } from './presentation/metrics.controller.js';
 import { ServiceOrdersController } from './presentation/service-orders.controller.js';
 import { ServiceOrderPersistenceModule } from './service-order-persistence.module.js';
 
@@ -35,7 +37,11 @@ import { ServiceOrderPersistenceModule } from './service-order-persistence.modul
     CustomerModule,
     CatalogModule,
   ],
-  controllers: [ServiceOrdersController, CustomerServiceOrdersController],
+  controllers: [
+    ServiceOrdersController,
+    CustomerServiceOrdersController,
+    MetricsController,
+  ],
   providers: [
     OpenServiceOrderUseCase,
     GetServiceOrderUseCase,
@@ -50,6 +56,7 @@ import { ServiceOrderPersistenceModule } from './service-order-persistence.modul
     DeliverServiceOrderUseCase,
     ListServiceOrdersUseCase,
     VerifyCustomerAccessUseCase,
+    AverageExecutionTimeQuery,
     ServiceOrderNotifier,
     { provide: CustomerDirectory, useClass: CustomerModuleDirectory },
     { provide: ServiceCatalog, useClass: CatalogModuleServiceCatalog },

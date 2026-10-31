@@ -27,4 +27,5 @@ export abstract class ServiceOrderRepository {
     page: number,
     pageSize: number,
   ): Promise<ServiceOrderPage>;
+  abstract listFinished(): Promise<ServiceOrder[]>;
 }
