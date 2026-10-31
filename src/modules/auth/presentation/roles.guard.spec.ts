@@ -23,10 +23,24 @@ function createContext(
 
 describe('RolesGuard', () => {
   const guard = new RolesGuard(new Reflector());
-  const mechanic: AuthenticatedUser = { userId: 'u1', role: Role.MECHANIC };
+  const mechanic: AuthenticatedUser = { id: 'u1', role: Role.MECHANIC };
+  const customer: AuthenticatedUser = { id: 'c1', role: Role.CUSTOMER };
 
-  it('libera rotas sem @Roles', () => {
+  it('libera para a equipe as rotas sem @Roles', () => {
     expect(guard.canActivate(createContext(mechanic, undefined))).toBe(true);
+  });
+
+  it('bloqueia o cliente nas rotas sem @Roles, que são da equipe', () => {
+    expect(guard.canActivate(createContext(customer, undefined))).toBe(false);
+  });
+
+  it('libera o cliente nas rotas marcadas para ele', () => {
+    const context = createContext(customer, [Role.CUSTOMER]);
+    expect(guard.canActivate(context)).toBe(true);
+  });
+
+  it('libera rotas públicas, que não têm usuário', () => {
+    expect(guard.canActivate(createContext(undefined, undefined))).toBe(true);
   });
 
   it('libera quando a função do usuário está na lista', () => {
