@@ -23,6 +23,7 @@ import { VerifyCustomerAccessUseCase } from './application/verify-customer-acces
 import { CustomerModuleDirectory } from './infrastructure/customer-directory.adapter.js';
 import { CatalogModulePartStock } from './infrastructure/part-stock.adapter.js';
 import { CatalogModuleServiceCatalog } from './infrastructure/service-catalog.adapter.js';
+import { CustomerServiceOrdersController } from './presentation/customer-service-orders.controller.js';
 import { ServiceOrdersController } from './presentation/service-orders.controller.js';
 import { ServiceOrderPersistenceModule } from './service-order-persistence.module.js';
 
@@ -34,7 +35,7 @@ import { ServiceOrderPersistenceModule } from './service-order-persistence.modul
     CustomerModule,
     CatalogModule,
   ],
-  controllers: [ServiceOrdersController],
+  controllers: [ServiceOrdersController, CustomerServiceOrdersController],
   providers: [
     OpenServiceOrderUseCase,
     GetServiceOrderUseCase,
