@@ -19,6 +19,7 @@ import { RegisterAdditionalRepairUseCase } from './application/register-addition
 import { RejectQuoteUseCase } from './application/reject-quote.use-case.js';
 import { ServiceOrderNotifier } from './application/service-order-notifier.js';
 import { StartDiagnosisUseCase } from './application/start-diagnosis.use-case.js';
+import { VerifyCustomerAccessUseCase } from './application/verify-customer-access.use-case.js';
 import { CustomerModuleDirectory } from './infrastructure/customer-directory.adapter.js';
 import { CatalogModulePartStock } from './infrastructure/part-stock.adapter.js';
 import { CatalogModuleServiceCatalog } from './infrastructure/service-catalog.adapter.js';
@@ -47,10 +48,12 @@ import { ServiceOrderPersistenceModule } from './service-order-persistence.modul
     FinishServiceOrderUseCase,
     DeliverServiceOrderUseCase,
     ListServiceOrdersUseCase,
+    VerifyCustomerAccessUseCase,
     ServiceOrderNotifier,
     { provide: CustomerDirectory, useClass: CustomerModuleDirectory },
     { provide: ServiceCatalog, useClass: CatalogModuleServiceCatalog },
     { provide: PartStock, useClass: CatalogModulePartStock },
   ],
+  exports: [VerifyCustomerAccessUseCase],
 })
 export class ServiceOrderModule {}
