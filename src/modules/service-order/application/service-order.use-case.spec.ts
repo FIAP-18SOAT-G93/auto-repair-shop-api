@@ -900,4 +900,60 @@ describe('Casos de uso da OS', () => {
       expect(customerId).toBeNull();
     });
   });
+
+  describe('acesso do cliente às próprias OS', () => {
+    it('detalha a OS do próprio cliente e esconde a de outro', async () => {
+      const { open, get } = setup();
+      const order = await open.execute(newCustomerAndVehicle);
+
+      await expect(get.execute(order.id, order.customerId)).resolves.toEqual(
+        order,
+      );
+      await expect(get.execute(order.id, 'outro-cliente')).rejects.toThrow(
+        ServiceOrderNotFoundError,
+      );
+    });
+
+    it('aprova o orçamento do próprio cliente', async () => {
+      const { awaitingApproval, approve, get } = setup();
+      const id = await awaitingApproval();
+      const { customerId } = await get.execute(id);
+
+      const order = await approve.execute({
+        serviceOrderId: id,
+        version: 1,
+        ownerId: customerId,
+      });
+
+      expect(order.status).toBe('IN_EXECUTION');
+    });
+
+    it('não aprova o orçamento de outro cliente nem altera a OS', async () => {
+      const { awaitingApproval, approve, get } = setup();
+      const id = await awaitingApproval();
+
+      await expect(
+        approve.execute({
+          serviceOrderId: id,
+          version: 1,
+          ownerId: 'outro-cliente',
+        }),
+      ).rejects.toThrow(ServiceOrderNotFoundError);
+      expect((await get.execute(id)).status).toBe('AWAITING_APPROVAL');
+    });
+
+    it('não rejeita o orçamento de outro cliente nem estorna as peças', async () => {
+      const { awaitingApproval, reject, stock } = setup();
+      const id = await awaitingApproval();
+
+      await expect(
+        reject.execute({
+          serviceOrderId: id,
+          version: 1,
+          ownerId: 'outro-cliente',
+        }),
+      ).rejects.toThrow(ServiceOrderNotFoundError);
+      expect(stock.parts.get('part-pads')?.quantity.value).toBe(1);
+    });
+  });
 });
