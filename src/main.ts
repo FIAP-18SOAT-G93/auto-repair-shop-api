@@ -21,6 +21,7 @@ async function bootstrap() {
     .addTag('Veículos', 'Cadastro de veículos dos clientes')
     .addTag('Serviços', 'Catálogo de serviços da oficina')
     .addTag('Peças e insumos', 'Estoque de peças e insumos')
+    .addTag('Métricas', 'Indicadores de desempenho para o gestor')
     .addTag('Ordens de serviço', 'Ciclo da OS, do atendimento à entrega')
     .addTag('Acompanhamento do cliente', 'Rotas do aplicativo do cliente')
     .build();

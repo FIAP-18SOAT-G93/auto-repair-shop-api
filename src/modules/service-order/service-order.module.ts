@@ -25,6 +25,7 @@ import { CustomerModuleDirectory } from './infrastructure/customer-directory.ada
 import { CatalogModulePartStock } from './infrastructure/part-stock.adapter.js';
 import { CatalogModuleServiceCatalog } from './infrastructure/service-catalog.adapter.js';
 import { CustomerServiceOrdersController } from './presentation/customer-service-orders.controller.js';
+import { MetricsController } from './presentation/metrics.controller.js';
 import { ServiceOrdersController } from './presentation/service-orders.controller.js';
 import { ServiceOrderPersistenceModule } from './service-order-persistence.module.js';
 
@@ -36,7 +37,11 @@ import { ServiceOrderPersistenceModule } from './service-order-persistence.modul
     CustomerModule,
     CatalogModule,
   ],
-  controllers: [ServiceOrdersController, CustomerServiceOrdersController],
+  controllers: [
+    ServiceOrdersController,
+    CustomerServiceOrdersController,
+    MetricsController,
+  ],
   providers: [
     OpenServiceOrderUseCase,
     GetServiceOrderUseCase,
