@@ -116,16 +116,15 @@ describe('StatusHistory', () => {
       expect(history.executionTimeMs()).toBeNull();
     });
 
-    it('conta a execução até a rejeição de um reparo adicional', () => {
+    it('é nulo enquanto aguarda a aprovação de um reparo adicional', () => {
       const history = historyOf(
         ['IN_DIAGNOSIS', '09:00'],
         ['AWAITING_APPROVAL', '10:00'],
         ['IN_EXECUTION', '11:00'],
         ['AWAITING_APPROVAL', '12:00'],
-        ['FINISHED', '14:00'],
       );
 
-      expect(history.executionTimeMs()).toBe(1 * HOUR);
+      expect(history.executionTimeMs()).toBeNull();
     });
   });
 });
