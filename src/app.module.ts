@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { CustomerModule } from './modules/customer/customer.module.js';
 import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { ServiceOrderModule } from './modules/service-order/service-order.module.js';
+import { HealthModule } from './health/health.module.js';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ServiceOrderModule } from './modules/service-order/service-order.module
     CustomerModule,
     CatalogModule,
     ServiceOrderModule,
+    HealthModule,
   ],
   controllers: [],
   providers: [

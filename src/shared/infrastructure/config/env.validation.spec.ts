@@ -3,8 +3,11 @@ import { validateEnv } from './env.validation.js';
 const validEnv = {
   NODE_ENV: 'test',
   PORT: '4000',
-  DATABASE_URL:
-    'postgresql://postgres:postgres@localhost:5432/auto_repair_shop?schema=public',
+  DB_HOST: 'localhost',
+  DB_PORT: '5433',
+  DB_USER: 'postgres',
+  DB_PASSWORD: 'postgres',
+  DB_NAME: 'auto_repair_shop',
   JWT_SECRET: 'a'.repeat(32),
   JWT_EXPIRES_IN: '15m',
 };
@@ -15,19 +18,22 @@ describe('validateEnv', () => {
 
     expect(env.NODE_ENV).toBe('test');
     expect(env.PORT).toBe(4000);
-    expect(env.DATABASE_URL).toBe(validEnv.DATABASE_URL);
+    expect(env.DB_HOST).toBe('localhost');
+    expect(env.DB_PORT).toBe(5433);
     expect(env.JWT_EXPIRES_IN).toBe('15m');
   });
 
-  it('aplica valores padrão para NODE_ENV e PORT', () => {
-    const env = validateEnv({
-      DATABASE_URL: validEnv.DATABASE_URL,
-      JWT_SECRET: validEnv.JWT_SECRET,
-      JWT_EXPIRES_IN: '1h',
-    });
+  it('aplica valores padrão para NODE_ENV, PORT e DB_PORT', () => {
+    const env: Record<string, unknown> = { ...validEnv };
+    delete env.NODE_ENV;
+    delete env.PORT;
+    delete env.DB_PORT;
 
-    expect(env.NODE_ENV).toBe('development');
-    expect(env.PORT).toBe(3000);
+    const parsed = validateEnv(env);
+
+    expect(parsed.NODE_ENV).toBe('development');
+    expect(parsed.PORT).toBe(3000);
+    expect(parsed.DB_PORT).toBe(5432);
   });
 
   it('rejeita NODE_ENV desconhecido', () => {
@@ -36,9 +42,9 @@ describe('validateEnv', () => {
     ).toThrow(/NODE_ENV deve ser/);
   });
 
-  it('rejeita PORT fora do intervalo', () => {
-    expect(() => validateEnv({ ...validEnv, PORT: '70000' })).toThrow(
-      /PORT deve estar entre 1 e 65535/,
+  it.each(['PORT', 'DB_PORT'])('rejeita %s fora do intervalo', (key) => {
+    expect(() => validateEnv({ ...validEnv, [key]: '70000' })).toThrow(
+      new RegExp(`${key} deve estar entre 1 e 65535`),
     );
   });
 
@@ -48,12 +54,17 @@ describe('validateEnv', () => {
     );
   });
 
-  it('rejeita quando DATABASE_URL está ausente', () => {
-    const env: Record<string, unknown> = { ...validEnv };
-    delete env.DATABASE_URL;
+  it.each(['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'])(
+    'rejeita quando %s está ausente',
+    (key) => {
+      const env: Record<string, unknown> = { ...validEnv };
+      delete env[key];
 
-    expect(() => validateEnv(env)).toThrow(/DATABASE_URL é obrigatória/);
-  });
+      expect(() => validateEnv(env)).toThrow(
+        new RegExp(`${key} é obrigatória`),
+      );
+    },
+  );
 
   it('rejeita JWT_SECRET com menos de 32 caracteres', () => {
     expect(() => validateEnv({ ...validEnv, JWT_SECRET: 'curto' })).toThrow(

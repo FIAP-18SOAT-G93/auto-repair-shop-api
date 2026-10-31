@@ -3,9 +3,18 @@ import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
+import { databaseUrl } from '../src/shared/infrastructure/config/database-url.js';
 
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  adapter: new PrismaPg({
+    connectionString: databaseUrl({
+      DB_HOST: process.env.DB_HOST ?? 'localhost',
+      DB_PORT: process.env.DB_PORT ?? 5432,
+      DB_USER: process.env.DB_USER ?? '',
+      DB_PASSWORD: process.env.DB_PASSWORD ?? '',
+      DB_NAME: process.env.DB_NAME ?? '',
+    }),
+  }),
 });
 
 // Credenciais de demonstração.
