@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '../../../shared/application/unit-of-work.js';
-import { ServiceOrderNotFoundError } from '../domain/service-order.errors.js';
 import { QuoteRejected } from '../domain/service-order.events.js';
 import { ServiceOrderRepository } from '../domain/service-order.repository.js';
+import { orderVisibleTo } from './order-visible-to.js';
 import { PartStock } from './ports/part-stock.js';
 import {
   type ServiceOrderOutput,
@@ -13,6 +13,7 @@ export interface RejectQuoteInput {
   serviceOrderId: string;
   version: number;
   reason?: string | null;
+  ownerId?: string;
 }
 
 @Injectable()
@@ -27,10 +28,13 @@ export class RejectQuoteUseCase {
     serviceOrderId,
     version,
     reason,
+    ownerId,
   }: RejectQuoteInput): Promise<ServiceOrderOutput> {
     return this.unitOfWork.run(async () => {
-      const order = await this.orders.findByIdForUpdate(serviceOrderId);
-      if (!order) throw new ServiceOrderNotFoundError();
+      const order = orderVisibleTo(
+        await this.orders.findByIdForUpdate(serviceOrderId),
+        ownerId,
+      );
 
       order.reject(version, new Date(), reason);
       await this.orders.save(order);
