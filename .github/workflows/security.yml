@@ -29,8 +29,8 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
-      - run: npx prisma generate
+      - run: npm ci --ignore-scripts
+      - run: ./node_modules/.bin/prisma generate
       - run: npm run test:cov
 
       - name: Cache dos pacotes do SonarCloud
@@ -65,7 +65,7 @@ jobs:
         run: timeout 180 sh -c 'until curl -fs http://localhost:3000/health; do sleep 3; done'
 
       - name: Análise da API pela definição OpenAPI
-        uses: zaproxy/action-api-scan@v0.9.0
+        uses: zaproxy/action-api-scan@77dfa9a647bb0f583e39d4df8531634d6ddd8df4 # v0.9.0
         with:
           target: http://localhost:3000/docs-json
           format: openapi
@@ -93,10 +93,10 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       - name: Análise das dependências
-        uses: dependency-check/Dependency-Check_Action@main
+        uses: dependency-check/Dependency-Check_Action@1e54355a8b4c8abaa8cc7d0b70aa655a3bb15a6c # main em 10/12/2025
         env:
           JAVA_HOME: /opt/jdk
         with:
