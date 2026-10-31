@@ -13,12 +13,17 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { AuthenticateCustomerUseCase } from '../application/authenticate-customer.use-case.js';
 import { GetCurrentUserUseCase } from '../application/get-current-user.use-case.js';
 import { LoginUseCase } from '../application/login.use-case.js';
 import type { AuthenticatedUser } from './authenticated-user.js';
 import { CurrentUser, Public } from './decorators.js';
 import { CurrentUserResponseDto } from './dto/current-user-response.dto.js';
-import { LoginDto, LoginResponseDto } from './dto/login.dto.js';
+import {
+  CustomerLoginDto,
+  LoginDto,
+  LoginResponseDto,
+} from './dto/login.dto.js';
 
 @ApiTags('Autenticação')
 @Controller('auth')
@@ -26,6 +31,7 @@ export class AuthController {
   constructor(
     private readonly loginUseCase: LoginUseCase,
     private readonly getCurrentUser: GetCurrentUserUseCase,
+    private readonly authenticateCustomerUseCase: AuthenticateCustomerUseCase,
   ) {}
 
   @Public()
@@ -48,6 +54,26 @@ export class AuthController {
     description: 'Token ausente, inválido ou expirado',
   })
   me(@CurrentUser() user: AuthenticatedUser): Promise<CurrentUserResponseDto> {
-    return this.getCurrentUser.execute(user.userId);
+    return this.getCurrentUser.execute(user.id);
+  }
+
+  @Public()
+  @Post('customer')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Autentica o cliente pelo documento e pelo código de acompanhamento da OS',
+  })
+  @ApiOkResponse({ type: LoginResponseDto })
+  @ApiUnauthorizedResponse({
+    description: 'Documento ou código de acompanhamento inválidos',
+  })
+  authenticateCustomer(
+    @Body() dto: CustomerLoginDto,
+  ): Promise<LoginResponseDto> {
+    return this.authenticateCustomerUseCase.execute({
+      document: dto.document,
+      trackingCode: dto.trackingCode,
+    });
   }
 }

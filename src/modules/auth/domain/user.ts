@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AggregateRoot } from '../../../shared/domain/aggregate-root.js';
 import { ValidationError } from '../../../shared/domain/domain-error.js';
-import type { Role } from './role.js';
+import type { TeamRole } from './role.js';
 
 export class InvalidUserError extends ValidationError {}
 
@@ -9,7 +9,7 @@ interface UserProps {
   name: string;
   email: string;
   passwordHash: string;
-  role: Role;
+  role: TeamRole;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -47,7 +47,7 @@ export class User extends AggregateRoot {
     return this.props.passwordHash;
   }
 
-  get role(): Role {
+  get role(): TeamRole {
     return this.props.role;
   }
 

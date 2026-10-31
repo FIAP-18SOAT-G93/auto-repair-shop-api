@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { UserNotFoundError } from '../domain/auth.errors.js';
-import type { Role } from '../domain/role.js';
+import type { TeamRole } from '../domain/role.js';
 import { UserRepository } from '../domain/user.repository.js';
 
 export interface CurrentUserOutput {
   id: string;
   name: string;
   email: string;
-  role: Role;
+  role: TeamRole;
 }
 
 @Injectable()

@@ -1,6 +1,6 @@
 import type { Role } from '../domain/role.js';
 
 export interface AuthenticatedUser {
-  userId: string;
+  id: string;
   role: Role;
 }

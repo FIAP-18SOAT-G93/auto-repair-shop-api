@@ -15,6 +15,14 @@ async function bootstrap() {
     )
     .setVersion('1.0')
     .addBearerAuth()
+    .addTag('Autenticação', 'Login da equipe e do cliente')
+    .addTag('Usuários', 'Cadastro dos usuários da equipe')
+    .addTag('Clientes', 'Cadastro de clientes por CPF ou CNPJ')
+    .addTag('Veículos', 'Cadastro de veículos dos clientes')
+    .addTag('Serviços', 'Catálogo de serviços da oficina')
+    .addTag('Peças e insumos', 'Estoque de peças e insumos')
+    .addTag('Ordens de serviço', 'Ciclo da OS, do atendimento à entrega')
+    .addTag('Acompanhamento do cliente', 'Rotas do aplicativo do cliente')
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);

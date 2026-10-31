@@ -9,6 +9,7 @@ import { PrismaModule } from '../../../shared/infrastructure/database/prisma.mod
 import { PrismaTransactionHost } from '../../../shared/infrastructure/database/prisma-transaction-host.js';
 import { VehicleHasOpenServiceOrderError } from '../domain/service-order.errors.js';
 import { ServiceOrder } from '../domain/service-order.js';
+import { TrackingCode } from '../domain/tracking-code.js';
 import { PrismaServiceOrderRepository } from './prisma-service-order.repository.js';
 
 describe('PrismaServiceOrderRepository (integração)', () => {
@@ -25,7 +26,12 @@ describe('PrismaServiceOrderRepository (integração)', () => {
     openedAt = at('08:00'),
   ): Promise<ServiceOrder> {
     const order = ServiceOrder.open(
-      { number: await orders.nextNumber(), customerId, vehicleId },
+      {
+        number: await orders.nextNumber(),
+        trackingCode: TrackingCode.generate(),
+        customerId,
+        vehicleId,
+      },
       openedAt,
     );
     orderIds.push(order.id);
@@ -132,6 +138,17 @@ describe('PrismaServiceOrderRepository (integração)', () => {
 
   it('responde null para id inexistente', async () => {
     expect(await orders.findById(randomUUID())).toBeNull();
+  });
+
+  it('encontra a OS pelo código de acompanhamento', async () => {
+    const order = await newOrder();
+    await orders.save(order);
+
+    const found = await orders.findByTrackingCode(order.trackingCode);
+
+    expect(found?.id).toBe(order.id);
+    expect(found?.trackingCode.equals(order.trackingCode)).toBe(true);
+    expect(await orders.findByTrackingCode(TrackingCode.generate())).toBeNull();
   });
 
   describe('uma OS aberta por veículo', () => {

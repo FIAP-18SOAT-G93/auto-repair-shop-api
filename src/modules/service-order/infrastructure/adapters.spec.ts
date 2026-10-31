@@ -23,6 +23,7 @@ import {
   InMemoryVehicleRepository,
 } from '../../customer/testing/fakes.js';
 import { ServiceOrder } from '../domain/service-order.js';
+import { TrackingCode } from '../domain/tracking-code.js';
 import { InMemoryServiceOrderRepository } from '../testing/fakes.js';
 import { CustomerModuleDirectory } from './customer-directory.adapter.js';
 import { CatalogModulePartStock } from './part-stock.adapter.js';
@@ -174,7 +175,12 @@ describe('Adaptadores do módulo de OS', () => {
       const checker = new RepositoryServiceOrderChecker(orders);
       await orders.save(
         ServiceOrder.open(
-          { number: 1, customerId: 'customer-1', vehicleId: 'vehicle-1' },
+          {
+            number: 1,
+            trackingCode: TrackingCode.generate(),
+            customerId: 'customer-1',
+            vehicleId: 'vehicle-1',
+          },
           new Date(),
         ),
       );

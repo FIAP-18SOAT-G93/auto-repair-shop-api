@@ -7,6 +7,7 @@ import {
 } from '../domain/service-order.errors.js';
 import { ServiceOrder } from '../domain/service-order.js';
 import { ServiceOrderRepository } from '../domain/service-order.repository.js';
+import { TrackingCode } from '../domain/tracking-code.js';
 import {
   CustomerDirectory,
   type CustomerRef,
@@ -57,6 +58,7 @@ export class OpenServiceOrderUseCase {
       const order = ServiceOrder.open(
         {
           number: await this.orders.nextNumber(),
+          trackingCode: await this.unusedTrackingCode(),
           customerId: customer.id,
           vehicleId: vehicle.id,
         },
@@ -65,6 +67,14 @@ export class OpenServiceOrderUseCase {
       await this.orders.save(order);
       return toServiceOrderOutput(order);
     });
+  }
+
+  private async unusedTrackingCode(): Promise<TrackingCode> {
+    let code = TrackingCode.generate();
+    while (await this.orders.findByTrackingCode(code)) {
+      code = TrackingCode.generate();
+    }
+    return code;
   }
 
   private async findOrRegisterCustomer(

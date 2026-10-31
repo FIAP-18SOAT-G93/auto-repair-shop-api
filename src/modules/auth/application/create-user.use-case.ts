@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EmailAlreadyInUseError } from '../domain/auth.errors.js';
-import type { Role } from '../domain/role.js';
+import type { TeamRole } from '../domain/role.js';
 import { User } from '../domain/user.js';
 import { UserRepository } from '../domain/user.repository.js';
 import { PasswordHasher } from './password-hasher.js';
@@ -9,7 +9,7 @@ export interface CreateUserInput {
   name: string;
   email: string;
   password: string;
-  role: Role;
+  role: TeamRole;
 }
 
 export interface CreateUserOutput {

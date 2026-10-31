@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { ServiceOrderNotFoundError } from '../domain/service-order.errors.js';
 import { ServiceOrderRepository } from '../domain/service-order.repository.js';
+import { orderVisibleTo } from './order-visible-to.js';
 import {
   type ServiceOrderOutput,
   toServiceOrderOutput,
@@ -10,9 +10,8 @@ import {
 export class GetServiceOrderUseCase {
   constructor(private readonly orders: ServiceOrderRepository) {}
 
-  async execute(id: string): Promise<ServiceOrderOutput> {
-    const order = await this.orders.findById(id);
-    if (!order) throw new ServiceOrderNotFoundError();
+  async execute(id: string, ownerId?: string): Promise<ServiceOrderOutput> {
+    const order = orderVisibleTo(await this.orders.findById(id), ownerId);
     return toServiceOrderOutput(order);
   }
 }

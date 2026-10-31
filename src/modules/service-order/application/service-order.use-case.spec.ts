@@ -15,6 +15,7 @@ import {
   VehicleHasOpenServiceOrderError,
   VehicleOwnedByAnotherCustomerError,
 } from '../domain/service-order.errors.js';
+import { TrackingCode } from '../domain/tracking-code.js';
 import {
   FakeCustomerDirectory,
   FakeNotificationGateway,
@@ -42,6 +43,7 @@ import { RegisterAdditionalRepairUseCase } from './register-additional-repair.us
 import { RejectQuoteUseCase } from './reject-quote.use-case.js';
 import { ServiceOrderNotifier } from './service-order-notifier.js';
 import { StartDiagnosisUseCase } from './start-diagnosis.use-case.js';
+import { VerifyCustomerAccessUseCase } from './verify-customer-access.use-case.js';
 
 const newCustomerAndVehicle: OpenServiceOrderInput = {
   customer: { document: '529.982.247-25', name: 'Maria da Silva' },
@@ -139,6 +141,7 @@ function setup() {
     finish: new FinishServiceOrderUseCase(orders, notifier, unitOfWork),
     deliver: new DeliverServiceOrderUseCase(orders, unitOfWork),
     list: new ListServiceOrdersUseCase(orders),
+    verifyAccess: new VerifyCustomerAccessUseCase(orders, directory),
     inDiagnosis,
     awaitingApproval,
     inExecution: async () => {
@@ -227,6 +230,33 @@ describe('Casos de uso da OS', () => {
         VehicleHasOpenServiceOrderError,
       );
       expect(orders.orders.size).toBe(1);
+    });
+
+    it('entrega o código de acompanhamento para o recibo do cliente', async () => {
+      const { open } = setup();
+
+      const order = await open.execute(newCustomerAndVehicle);
+
+      expect(order.trackingCode).toMatch(
+        /^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/,
+      );
+    });
+
+    it('sorteia outro código quando o primeiro já está em uso', async () => {
+      const { open } = setup();
+      const first = await open.execute(newCustomerAndVehicle);
+      const generate = vi
+        .spyOn(TrackingCode, 'generate')
+        .mockReturnValueOnce(TrackingCode.parse(first.trackingCode));
+
+      const second = await open.execute({
+        customer: { document: '529.982.247-25' },
+        vehicle: { plate: 'ABC1234', brand: 'Fiat', model: 'Uno', year: 2015 },
+      });
+
+      expect(second.trackingCode).not.toBe(first.trackingCode);
+      expect(generate).toHaveBeenCalledTimes(2);
+      generate.mockRestore();
     });
   });
 
@@ -814,6 +844,116 @@ describe('Casos de uso da OS', () => {
 
         expect(await count('2026-10-31', '2026-10-01')).toBe(0);
       });
+    });
+  });
+
+  describe('VerifyCustomerAccessUseCase', () => {
+    it('confere o documento e o código e devolve o cliente dono da OS', async () => {
+      const { open, verifyAccess } = setup();
+      const order = await open.execute(newCustomerAndVehicle);
+
+      const customerId = await verifyAccess.execute({
+        document: '52998224725',
+        trackingCode: order.trackingCode.toLowerCase(),
+      });
+
+      expect(customerId).toBe(order.customerId);
+    });
+
+    it('recusa o documento de outro cliente, mesmo com um código válido', async () => {
+      const { open, verifyAccess } = setup();
+      const order = await open.execute(newCustomerAndVehicle);
+      await open.execute({
+        customer: { document: '11.222.333/0001-81', name: 'Oficina Parceira' },
+        vehicle: { plate: 'ABC1234', brand: 'Fiat', model: 'Uno', year: 2015 },
+      });
+
+      const customerId = await verifyAccess.execute({
+        document: '11.222.333/0001-81',
+        trackingCode: order.trackingCode,
+      });
+
+      expect(customerId).toBeNull();
+    });
+
+    it('recusa um código que não existe', async () => {
+      const { open, verifyAccess } = setup();
+      await open.execute(newCustomerAndVehicle);
+
+      const customerId = await verifyAccess.execute({
+        document: '529.982.247-25',
+        trackingCode: 'AAAA-AAAA',
+      });
+
+      expect(customerId).toBeNull();
+    });
+
+    it('recusa um documento sem cadastro', async () => {
+      const { open, verifyAccess } = setup();
+      const order = await open.execute(newCustomerAndVehicle);
+
+      const customerId = await verifyAccess.execute({
+        document: '111.444.777-35',
+        trackingCode: order.trackingCode,
+      });
+
+      expect(customerId).toBeNull();
+    });
+  });
+
+  describe('acesso do cliente às próprias OS', () => {
+    it('detalha a OS do próprio cliente e esconde a de outro', async () => {
+      const { open, get } = setup();
+      const order = await open.execute(newCustomerAndVehicle);
+
+      await expect(get.execute(order.id, order.customerId)).resolves.toEqual(
+        order,
+      );
+      await expect(get.execute(order.id, 'outro-cliente')).rejects.toThrow(
+        ServiceOrderNotFoundError,
+      );
+    });
+
+    it('aprova o orçamento do próprio cliente', async () => {
+      const { awaitingApproval, approve, get } = setup();
+      const id = await awaitingApproval();
+      const { customerId } = await get.execute(id);
+
+      const order = await approve.execute({
+        serviceOrderId: id,
+        version: 1,
+        ownerId: customerId,
+      });
+
+      expect(order.status).toBe('IN_EXECUTION');
+    });
+
+    it('não aprova o orçamento de outro cliente nem altera a OS', async () => {
+      const { awaitingApproval, approve, get } = setup();
+      const id = await awaitingApproval();
+
+      await expect(
+        approve.execute({
+          serviceOrderId: id,
+          version: 1,
+          ownerId: 'outro-cliente',
+        }),
+      ).rejects.toThrow(ServiceOrderNotFoundError);
+      expect((await get.execute(id)).status).toBe('AWAITING_APPROVAL');
+    });
+
+    it('não rejeita o orçamento de outro cliente nem estorna as peças', async () => {
+      const { awaitingApproval, reject, stock } = setup();
+      const id = await awaitingApproval();
+
+      await expect(
+        reject.execute({
+          serviceOrderId: id,
+          version: 1,
+          ownerId: 'outro-cliente',
+        }),
+      ).rejects.toThrow(ServiceOrderNotFoundError);
+      expect(stock.parts.get('part-pads')?.quantity.value).toBe(1);
     });
   });
 });

@@ -16,8 +16,10 @@ import {
 } from './service-order.events.js';
 import { ServiceOrder } from './service-order.js';
 import { StatusHistory } from './status-history.js';
+import { TrackingCode } from './tracking-code.js';
 
 const at = (time: string) => new Date(`2026-10-27T${time}:00Z`);
+const trackingCode = TrackingCode.parse('K7QM-4XPA');
 const HOUR = 60 * 60 * 1000;
 
 const alignment = {
@@ -45,7 +47,12 @@ const brakeFluid = {
 
 const opened = () =>
   ServiceOrder.open(
-    { number: 1042, customerId: 'customer-1', vehicleId: 'vehicle-1' },
+    {
+      number: 1042,
+      trackingCode,
+      customerId: 'customer-1',
+      vehicleId: 'vehicle-1',
+    },
     at('08:00'),
   );
 
@@ -85,6 +92,7 @@ describe('ServiceOrder', () => {
 
       expect(order.id).toMatch(/^[0-9a-f-]{36}$/);
       expect(order.number).toBe(1042);
+      expect(order.trackingCode.toString()).toBe('K7QM-4XPA');
       expect(order.status).toBe('RECEIVED');
       expect(order.customerId).toBe('customer-1');
       expect(order.vehicleId).toBe('vehicle-1');
@@ -106,7 +114,12 @@ describe('ServiceOrder', () => {
     it.each([0, -1, 1.5])('rejeita número de OS %s', (number) => {
       expect(() =>
         ServiceOrder.open(
-          { number, customerId: 'customer-1', vehicleId: 'vehicle-1' },
+          {
+            number,
+            trackingCode,
+            customerId: 'customer-1',
+            vehicleId: 'vehicle-1',
+          },
           at('08:00'),
         ),
       ).toThrow(InvalidServiceOrderError);
@@ -452,6 +465,7 @@ describe('ServiceOrder', () => {
         '55555555-5555-5555-5555-555555555555',
         {
           number: 7,
+          trackingCode,
           customerId: 'customer-1',
           vehicleId: 'vehicle-1',
           history: StatusHistory.start(at('08:00')),
@@ -463,6 +477,7 @@ describe('ServiceOrder', () => {
 
       expect(order.id).toBe('55555555-5555-5555-5555-555555555555');
       expect(order.number).toBe(7);
+      expect(order.trackingCode.equals(trackingCode)).toBe(true);
       expect(order.status).toBe('RECEIVED');
       expect(order.pullDomainEvents()).toHaveLength(0);
     });

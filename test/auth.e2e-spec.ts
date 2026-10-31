@@ -5,7 +5,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { AppModule } from '../src/app.module.js';
 import { PasswordHasher } from '../src/modules/auth/application/password-hasher.js';
-import { Role } from '../src/modules/auth/domain/role.js';
+import { Role, TeamRole } from '../src/modules/auth/domain/role.js';
 import { User } from '../src/modules/auth/domain/user.js';
 import { UserRepository } from '../src/modules/auth/domain/user.repository.js';
 import { PrismaTransactionHost } from '../src/shared/infrastructure/database/prisma-transaction-host.js';
@@ -18,7 +18,7 @@ describe('Autenticação (e2e)', () => {
   let managerEmail: string;
   let mechanicEmail: string;
 
-  async function createUser(role: Role): Promise<string> {
+  async function createUser(role: TeamRole): Promise<string> {
     const email = `${randomUUID()}${TEST_DOMAIN}`;
     const hasher = app.get(PasswordHasher);
     const user = User.create({

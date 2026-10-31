@@ -25,6 +25,7 @@ import {
   ServiceOrderOpened,
 } from './service-order.events.js';
 import { StatusHistory } from './status-history.js';
+import type { TrackingCode } from './tracking-code.js';
 
 export type NewServiceItem = Omit<ServiceItemProps, 'quoteVersion'>;
 export type NewPartItem = Omit<PartItemProps, 'quoteVersion'>;
@@ -36,6 +37,7 @@ export interface AdditionalRepairItems {
 
 export interface ServiceOrderProps {
   number: number;
+  trackingCode: TrackingCode;
   customerId: string;
   vehicleId: string;
   history: StatusHistory;
@@ -53,7 +55,12 @@ export class ServiceOrder extends AggregateRoot {
   }
 
   static open(
-    input: { number: number; customerId: string; vehicleId: string },
+    input: {
+      number: number;
+      trackingCode: TrackingCode;
+      customerId: string;
+      vehicleId: string;
+    },
     now: Date,
   ): ServiceOrder {
     if (!Number.isInteger(input.number) || input.number < 1) {
@@ -63,6 +70,7 @@ export class ServiceOrder extends AggregateRoot {
     }
     const order = new ServiceOrder(randomUUID(), {
       number: input.number,
+      trackingCode: input.trackingCode,
       customerId: input.customerId,
       vehicleId: input.vehicleId,
       history: StatusHistory.start(now),
@@ -185,6 +193,10 @@ export class ServiceOrder extends AggregateRoot {
 
   get number(): number {
     return this.props.number;
+  }
+
+  get trackingCode(): TrackingCode {
+    return this.props.trackingCode;
   }
 
   get customerId(): string {

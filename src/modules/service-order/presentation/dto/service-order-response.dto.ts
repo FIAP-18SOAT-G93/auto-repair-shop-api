@@ -86,6 +86,13 @@ export class ServiceOrderResponseDto {
   @ApiProperty({ example: 1042, description: 'Número da OS para o cliente' })
   number!: number;
 
+  @ApiProperty({
+    example: 'K7QM-4XPA',
+    description:
+      'Código que o cliente usa, com o documento, para acompanhar a OS',
+  })
+  trackingCode!: string;
+
   @ApiProperty({ format: 'uuid' })
   customerId!: string;
 

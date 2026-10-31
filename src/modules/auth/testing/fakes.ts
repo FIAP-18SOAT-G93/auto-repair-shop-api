@@ -2,6 +2,10 @@ import {
   AccessTokenIssuer,
   type AccessTokenPayload,
 } from '../application/access-token-issuer.js';
+import {
+  CustomerAccessVerifier,
+  type CustomerCredentials,
+} from '../application/customer-access-verifier.js';
 import { PasswordHasher } from '../application/password-hasher.js';
 import type { User } from '../domain/user.js';
 import { UserRepository } from '../domain/user.repository.js';
@@ -32,6 +36,21 @@ export class FakePasswordHasher implements PasswordHasher {
     passwordHash: string | null,
   ): Promise<boolean> {
     return passwordHash === `hashed:${plainPassword}`;
+  }
+}
+
+export class FakeCustomerAccessVerifier implements CustomerAccessVerifier {
+  readonly accesses = new Map<string, string>();
+
+  allow(document: string, trackingCode: string, customerId: string): void {
+    this.accesses.set(`${document}|${trackingCode}`, customerId);
+  }
+
+  async verify({
+    document,
+    trackingCode,
+  }: CustomerCredentials): Promise<string | null> {
+    return this.accesses.get(`${document}|${trackingCode}`) ?? null;
   }
 }
 

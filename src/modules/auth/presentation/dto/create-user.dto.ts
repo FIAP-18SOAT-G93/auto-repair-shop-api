@@ -6,7 +6,7 @@ import {
   IsString,
   MinLength,
 } from 'class-validator';
-import { Role } from '../../domain/role.js';
+import { TeamRole } from '../../domain/role.js';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'Marco Antônio' })
@@ -23,9 +23,9 @@ export class CreateUserDto {
   @MinLength(8, { message: 'A senha deve ter pelo menos 8 caracteres' })
   password!: string;
 
-  @ApiProperty({ enum: Role, example: Role.MECHANIC })
-  @IsEnum(Role, { message: 'Função inválida' })
-  role!: Role;
+  @ApiProperty({ enum: TeamRole, example: TeamRole.MECHANIC })
+  @IsEnum(TeamRole, { message: 'Função inválida' })
+  role!: TeamRole;
 }
 
 export class CreateUserResponseDto {

@@ -3,7 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { PasswordHasher } from '../../src/modules/auth/application/password-hasher.js';
-import type { Role } from '../../src/modules/auth/domain/role.js';
+import type { TeamRole } from '../../src/modules/auth/domain/role.js';
 import { User } from '../../src/modules/auth/domain/user.js';
 import { UserRepository } from '../../src/modules/auth/domain/user.repository.js';
 import { PrismaTransactionHost } from '../../src/shared/infrastructure/database/prisma-transaction-host.js';
@@ -14,7 +14,7 @@ const PASSWORD = 'Senha@Teste123';
 /** Cria um usuário com a função informada e devolve um token válido para ele. */
 export async function tokenFor(
   app: INestApplication<App>,
-  role: Role,
+  role: TeamRole,
 ): Promise<string> {
   const email = `${randomUUID()}${HELPER_DOMAIN}`;
   const user = User.create({
