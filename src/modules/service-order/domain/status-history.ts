@@ -53,20 +53,20 @@ export class StatusHistory {
   executionTimeMs(): number | null {
     let total = 0;
     let startedAt: Date | null = null;
-    let executed = false;
+    let finishedAfterExecution = false;
 
     for (const change of this.changes) {
       if (startedAt && change.from === ServiceOrderStatus.IN_EXECUTION) {
         total += change.changedAt.getTime() - startedAt.getTime();
         startedAt = null;
+        finishedAfterExecution = change.to === ServiceOrderStatus.FINISHED;
       }
       if (change.to === ServiceOrderStatus.IN_EXECUTION) {
         startedAt = change.changedAt;
-        executed = true;
       }
     }
 
-    return executed && !startedAt ? total : null;
+    return finishedAfterExecution ? total : null;
   }
 
   private get last(): StatusChange {
