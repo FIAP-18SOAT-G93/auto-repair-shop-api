@@ -82,6 +82,19 @@ jobs:
       - run: npx prisma generate
       - run: npm run test:e2e
 
+  docker:
+    name: Imagem Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Imagem das migrations
+        run: docker build --target migrator .
+
+      - name: Imagem da API
+        run: docker build --target runtime .
+
   audit:
     name: Auditoria de dependências
     runs-on: ubuntu-latest
