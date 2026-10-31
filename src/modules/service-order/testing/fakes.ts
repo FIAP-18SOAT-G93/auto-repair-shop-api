@@ -29,6 +29,7 @@ import type {
 } from '../application/ports/service-catalog.js';
 import { VehicleHasOpenServiceOrderError } from '../domain/service-order.errors.js';
 import { ServiceOrder } from '../domain/service-order.js';
+import type { TrackingCode } from '../domain/tracking-code.js';
 import {
   type ServiceOrderFilter,
   type ServiceOrderPage,
@@ -59,6 +60,13 @@ export class InMemoryServiceOrderRepository implements ServiceOrderRepository {
 
   findByIdForUpdate(id: string): Promise<ServiceOrder | null> {
     return this.findById(id);
+  }
+
+  async findByTrackingCode(code: TrackingCode): Promise<ServiceOrder | null> {
+    const order = [...this.orders.values()].find((o) =>
+      o.trackingCode.equals(code),
+    );
+    return order ? copy(order) : null;
   }
 
   async findOpenByVehicle(vehicleId: string): Promise<ServiceOrder | null> {
@@ -99,6 +107,7 @@ export class InMemoryServiceOrderRepository implements ServiceOrderRepository {
 function copy(order: ServiceOrder): ServiceOrder {
   return ServiceOrder.restore(order.id, {
     number: order.number,
+    trackingCode: order.trackingCode,
     customerId: order.customerId,
     vehicleId: order.vehicleId,
     history: order.history,
