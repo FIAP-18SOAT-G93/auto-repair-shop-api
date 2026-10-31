@@ -19,12 +19,12 @@ interface OrderBody {
   status: string;
   services: { serviceId: string; price: number }[];
   parts: { partId: string; quantity: number; total: number }[];
-  quote: {
+  quotes: {
     version: number;
     total: number;
     decision: string | null;
     rejectionReason: string | null;
-  } | null;
+  }[];
   history: { to: string }[];
   approvedTotal: number;
   totalIfApproved: number;
@@ -331,11 +331,9 @@ describe('Ordens de serviço (e2e)', () => {
       const order = await orderAwaitingApproval();
 
       expect(order.status).toBe('AWAITING_APPROVAL');
-      expect(order.quote).toMatchObject({
-        version: 1,
-        total: 389.7,
-        decision: null,
-      });
+      expect(order.quotes).toEqual([
+        expect.objectContaining({ version: 1, total: 389.7, decision: null }),
+      ]);
     });
 
     it('sem itens, a conclusão do diagnóstico responde 409', async () => {
@@ -374,10 +372,12 @@ describe('Ordens de serviço (e2e)', () => {
         .expect(200);
       const body = detail.body as OrderBody;
       expect(body.status).toBe('FINISHED');
-      expect(body.quote).toMatchObject({
-        decision: 'REJECTED',
-        rejectionReason: 'Valor acima do esperado',
-      });
+      expect(body.quotes).toEqual([
+        expect.objectContaining({
+          decision: 'REJECTED',
+          rejectionReason: 'Valor acima do esperado',
+        }),
+      ]);
       expect(body.history.map((change) => change.to)).not.toContain(
         'IN_EXECUTION',
       );
@@ -449,11 +449,10 @@ describe('Ordens de serviço (e2e)', () => {
 
       const body = response.body as OrderBody;
       expect(body.status).toBe('AWAITING_APPROVAL');
-      expect(body.quote).toMatchObject({
-        version: 2,
-        total: 239.8,
-        decision: null,
-      });
+      expect(body.quotes).toEqual([
+        expect.objectContaining({ version: 1, decision: 'APPROVED' }),
+        expect.objectContaining({ version: 2, total: 239.8, decision: null }),
+      ]);
       expect(body.services).toHaveLength(2);
       expect(body.approvedTotal).toBe(389.7);
       expect(body.totalIfApproved).toBe(629.5);

@@ -126,8 +126,12 @@ export class ServiceOrderResponseDto {
   })
   totalIfApproved!: number;
 
-  @ApiProperty({ type: QuoteResponseDto, nullable: true })
-  quote!: QuoteResponseDto | null;
+  @ApiProperty({
+    type: [QuoteResponseDto],
+    description:
+      'Orçamentos da OS em ordem de versão: o último é o atual, e os anteriores guardam as decisões já tomadas',
+  })
+  quotes!: QuoteResponseDto[];
 
   @ApiProperty({ type: [StatusChangeResponseDto] })
   history!: StatusChangeResponseDto[];
