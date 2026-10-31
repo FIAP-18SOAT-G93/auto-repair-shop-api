@@ -16,6 +16,7 @@ import {
   ServiceOrderRepository,
 } from '../domain/service-order.repository.js';
 import { StatusHistory } from '../domain/status-history.js';
+import { TrackingCode } from '../domain/tracking-code.js';
 
 const INCLUDE = {
   serviceItems: { orderBy: { position: 'asc' } },
@@ -66,6 +67,14 @@ export class PrismaServiceOrderRepository implements ServiceOrderRepository {
     return this.findById(id);
   }
 
+  async findByTrackingCode(code: TrackingCode): Promise<ServiceOrder | null> {
+    const record = await this.host.client.serviceOrder.findUnique({
+      where: { trackingCode: code.value },
+      include: INCLUDE,
+    });
+    return record ? toDomain(record) : null;
+  }
+
   async findOpenByVehicle(vehicleId: string): Promise<ServiceOrder | null> {
     const record = await this.host.client.serviceOrder.findFirst({
       where: { vehicleId, ...OPEN },
@@ -113,6 +122,7 @@ export class PrismaServiceOrderRepository implements ServiceOrderRepository {
         create: {
           id: order.id,
           number: order.number,
+          trackingCode: order.trackingCode.value,
           customerId: order.customerId,
           vehicleId: order.vehicleId,
           createdAt: order.openedAt,
@@ -196,6 +206,7 @@ function deliveredAtOf(order: ServiceOrder): Date | null {
 function toDomain(record: ServiceOrderRecord): ServiceOrder {
   return ServiceOrder.restore(record.id, {
     number: record.number,
+    trackingCode: TrackingCode.parse(record.trackingCode),
     customerId: record.customerId,
     vehicleId: record.vehicleId,
     history: StatusHistory.restore(

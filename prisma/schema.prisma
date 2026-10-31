@@ -113,14 +113,15 @@ enum QuoteDecision {
 }
 
 model ServiceOrder {
-  id          String             @id @db.Uuid
-  number      Int                @unique @default(autoincrement())
-  customerId  String             @map("customer_id") @db.Uuid
-  vehicleId   String             @map("vehicle_id") @db.Uuid
-  status      ServiceOrderStatus
-  deliveredAt DateTime?          @map("delivered_at")
-  createdAt   DateTime           @default(now()) @map("created_at")
-  updatedAt   DateTime           @updatedAt @map("updated_at")
+  id           String             @id @db.Uuid
+  number       Int                @unique @default(autoincrement())
+  trackingCode String             @unique @map("tracking_code") @db.Char(8)
+  customerId   String             @map("customer_id") @db.Uuid
+  vehicleId    String             @map("vehicle_id") @db.Uuid
+  status       ServiceOrderStatus
+  deliveredAt  DateTime?          @map("delivered_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
 
   serviceItems  ServiceOrderServiceItem[]
   partItems     ServiceOrderPartItem[]
