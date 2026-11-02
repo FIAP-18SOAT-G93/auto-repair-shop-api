@@ -1,0 +1,1239 @@
+{
+  "info": {
+    "name": "Oficina Mecânica API",
+    "description": "Ciclo completo de uma ordem de serviço, do atendimento à consulta do cliente, com os erros esperados das regras de negócio.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Saúde da API",
+      "item": [
+        {
+          "name": "Saúde da API",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API e banco no ar', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Login da equipe",
+      "item": [
+        {
+          "name": "Login do atendente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"atendente@oficina.com\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login aceito', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('attendantToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login do mecânico",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"mecanico@oficina.com\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login aceito', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('mechanicToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login do gestor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"gestor@oficina.com\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login aceito', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('managerToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Abertura da OS",
+      "item": [
+        {
+          "name": "Atendente abre a OS com cliente e veículo novos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{attendantToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\n    \"document\": \"{{customerDocument}}\",\n    \"name\": \"Maria da Silva\",\n    \"email\": \"maria@exemplo.com\",\n    \"phone\": \"(11) 98765-4321\"\n  },\n  \"vehicle\": {\n    \"plate\": \"{{vehiclePlate}}\",\n    \"brand\": \"Volkswagen\",\n    \"model\": \"Gol\",\n    \"year\": 2020\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Na primeira execução, cadastra o cliente e o veículo. Nas seguintes, reaproveita os dois cadastros. A resposta traz o trackingCode do recibo do cliente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('OS aberta', () => pm.response.to.have.status(201));",
+                  "pm.test('OS em RECEIVED', () => pm.expect(pm.response.json().status).to.eql('RECEIVED'));",
+                  "const order = pm.response.json();",
+                  "pm.collectionVariables.set('orderId', order.id);",
+                  "pm.collectionVariables.set('trackingCode', order.trackingCode);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Diagnóstico",
+      "item": [
+        {
+          "name": "Mecânico inicia o diagnóstico",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders/{{orderId}}/start-diagnosis",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders", "{{orderId}}", "start-diagnosis"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mechanicToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('diagnóstico iniciado', () => pm.response.to.have.status(200));",
+                  "pm.test('OS em IN_DIAGNOSIS', () => pm.expect(pm.response.json().status).to.eql('IN_DIAGNOSIS'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Inclui a troca de óleo (R$ 120,00)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders/{{orderId}}/services",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders", "{{orderId}}", "services"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mechanicToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceId\": \"{{oilChange}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('serviço incluído', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Inclui o filtro de óleo (1 x R$ 35,90), com baixa no estoque",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders/{{orderId}}/parts",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders", "{{orderId}}", "parts"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mechanicToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"partId\": \"{{oilFilter}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('peça incluída', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Inclui o óleo de motor (4 x R$ 45,00), com baixa no estoque",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders/{{orderId}}/parts",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders", "{{orderId}}", "parts"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mechanicToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"partId\": \"{{engineOil}}\",\n  \"quantity\": 4\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('insumo incluído', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Erro esperado: peça sem saldo (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders/{{orderId}}/parts",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders", "{{orderId}}", "parts"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mechanicToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"partId\": \"{{brakeDisc}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('peça indisponível em estoque', () => pm.response.to.have.status(409));",
+                  "pm.test('mensagem do domínio', () => pm.expect(pm.response.json().message).to.eql('Peça indisponível em estoque'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conclui o diagnóstico e gera o orçamento v1 (R$ 335,90)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders/{{orderId}}/conclude-diagnosis",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders", "{{orderId}}", "conclude-diagnosis"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mechanicToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('diagnóstico concluído', () => pm.response.to.have.status(200));",
+                  "pm.test('OS em AWAITING_APPROVAL', () => pm.expect(pm.response.json().status).to.eql('AWAITING_APPROVAL'));",
+                  "pm.test('orçamento v1 de R$ 335,90', () => {",
+                  "  const [quote] = pm.response.json().quotes;",
+                  "  pm.expect(quote.version).to.eql(1);",
+                  "  pm.expect(quote.total).to.eql(335.9);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Aprovação pelo cliente",
+      "item": [
+        {
+          "name": "Cliente entra com o documento e o código de acompanhamento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/customer",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "customer"]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"document\": \"{{customerDocument}}\",\n  \"trackingCode\": \"{{trackingCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('cliente autenticado', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('customerToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cliente consulta a OS e o orçamento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customer/service-orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["customer", "service-orders", "{{orderId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('OS do próprio cliente', () => pm.response.to.have.status(200));",
+                  "pm.test('OS em AWAITING_APPROVAL', () => pm.expect(pm.response.json().status).to.eql('AWAITING_APPROVAL'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cliente aprova a versão 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/service-orders/{{orderId}}/approve-quote",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "customer",
+                "service-orders",
+                "{{orderId}}",
+                "approve-quote"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('orçamento aprovado', () => pm.response.to.have.status(200));",
+                  "pm.test('OS em IN_EXECUTION', () => pm.expect(pm.response.json().status).to.eql('IN_EXECUTION'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Reparo adicional",
+      "item": [
+        {
+          "name": "Mecânico registra reparo adicional nos freios: v2 (R$ 479,80)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders/{{orderId}}/additional-repair",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders", "{{orderId}}", "additional-repair"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mechanicToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"services\": [\n    \"{{brakeReview}}\"\n  ],\n  \"parts\": [\n    {\n      \"partId\": \"{{brakePads}}\",\n      \"quantity\": 2\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('reparo adicional registrado', () => pm.response.to.have.status(200));",
+                  "pm.test('OS em AWAITING_APPROVAL', () => pm.expect(pm.response.json().status).to.eql('AWAITING_APPROVAL'));",
+                  "pm.test('orçamento v2 de R$ 479,80', () => {",
+                  "  const quotes = pm.response.json().quotes;",
+                  "  pm.expect(quotes).to.have.length(2);",
+                  "  pm.expect(quotes[1].total).to.eql(479.8);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Erro esperado: decisão sobre a versão errada (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/service-orders/{{orderId}}/approve-quote",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "customer",
+                "service-orders",
+                "{{orderId}}",
+                "approve-quote"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('a versão pendente é a 2', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cliente rejeita a v2: as pastilhas voltam ao estoque",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/service-orders/{{orderId}}/reject-quote",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "customer",
+                "service-orders",
+                "{{orderId}}",
+                "reject-quote"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 2,\n  \"reason\": \"Vou fazer os freios na próxima revisão\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('reparo adicional rejeitado', () => pm.response.to.have.status(200));",
+                  "pm.test('OS em IN_EXECUTION', () => pm.expect(pm.response.json().status).to.eql('IN_EXECUTION'));",
+                  "pm.test('valor a pagar continua R$ 335,90', () => pm.expect(pm.response.json().approvedTotal).to.eql(335.9));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Finalização e entrega",
+      "item": [
+        {
+          "name": "Mecânico finaliza o serviço",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders/{{orderId}}/finish",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders", "{{orderId}}", "finish"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mechanicToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('OS finalizada', () => pm.response.to.have.status(200));",
+                  "pm.test('OS em FINISHED', () => pm.expect(pm.response.json().status).to.eql('FINISHED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atendente entrega o veículo",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders/{{orderId}}/deliver",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders", "{{orderId}}", "deliver"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{attendantToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('veículo entregue', () => pm.response.to.have.status(200));",
+                  "pm.test('OS em DELIVERED', () => pm.expect(pm.response.json().status).to.eql('DELIVERED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cliente consulta a OS entregue, com o histórico",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customer/service-orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["customer", "service-orders", "{{orderId}}"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('OS entregue', () => pm.response.to.have.status(200));",
+                  "pm.test('histórico completo', () => {",
+                  "  const statuses = pm.response.json().history.map((change) => change.to);",
+                  "  pm.expect(statuses[0]).to.eql('RECEIVED');",
+                  "  pm.expect(statuses[statuses.length - 1]).to.eql('DELIVERED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Consultas da equipe",
+      "item": [
+        {
+          "name": "Lista das OS entregues",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders?status=DELIVERED",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "DELIVERED"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{attendantToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('listagem', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tempo médio de execução (gestor)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/metrics/average-execution-time",
+              "host": ["{{baseUrl}}"],
+              "path": ["metrics", "average-execution-time"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('métrica disponível', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Peças sem saldo, para reposição (gestor)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/parts/unavailable",
+              "host": ["{{baseUrl}}"],
+              "path": ["parts", "unavailable"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('lista de indisponíveis', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Entrada de estoque do aditivo de radiador (gestor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/parts/{{radiatorAdditive}}/stock-entry",
+              "host": ["{{baseUrl}}"],
+              "path": ["parts", "{{radiatorAdditive}}", "stock-entry"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 6\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Usa o aditivo, e não o disco de freio, para que o erro de peça sem saldo do diagnóstico continue acontecendo nas próximas execuções."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('entrada registrada', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Controle de acesso",
+      "item": [
+        {
+          "name": "Erro esperado: mecânico não abre OS (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{mechanicToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\n    \"document\": \"{{customerDocument}}\"\n  },\n  \"vehicle\": {\n    \"plate\": \"{{vehiclePlate}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('só atendente e gestor abrem OS', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Erro esperado: token do cliente nas rotas da equipe (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders"]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rota da equipe', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Erro esperado: sem token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/service-orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["service-orders"]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('autenticação obrigatória', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "password",
+      "value": "Oficina@123"
+    },
+    {
+      "key": "customerDocument",
+      "value": "529.982.247-25"
+    },
+    {
+      "key": "vehiclePlate",
+      "value": "BRA2E19"
+    },
+    {
+      "key": "oilChange",
+      "value": "2664b3c2-23cd-4136-b521-afef4f167817"
+    },
+    {
+      "key": "brakeReview",
+      "value": "5d22d890-e01b-4ad7-9235-4f54d456e06a"
+    },
+    {
+      "key": "oilFilter",
+      "value": "7589ceda-f324-4e71-8eac-aedd171f08c2"
+    },
+    {
+      "key": "engineOil",
+      "value": "553f33f5-60ec-4d50-b248-f6f4fbed9a6e"
+    },
+    {
+      "key": "brakePads",
+      "value": "20d369bb-cef4-4738-ad63-2d351df8f120"
+    },
+    {
+      "key": "brakeDisc",
+      "value": "9a89122e-3041-4196-82ca-2c3e37a893d8"
+    },
+    {
+      "key": "radiatorAdditive",
+      "value": "83daa856-df95-42a6-9c7f-d99f7995f627"
+    },
+    {
+      "key": "attendantToken",
+      "value": ""
+    },
+    {
+      "key": "mechanicToken",
+      "value": ""
+    },
+    {
+      "key": "managerToken",
+      "value": ""
+    },
+    {
+      "key": "customerToken",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "trackingCode",
+      "value": ""
+    }
+  ]
+}
