@@ -33,7 +33,7 @@ O orçamento é gerado automaticamente ao fim do diagnóstico, com base nos serv
 - [C4 — níveis 1 a 3](docs/ddd/c4.pdf)
 - [Linguagem ubíqua](docs/ddd/linguagem-ubiqua.md)
 - [Relação entre a modelagem e o código](docs/ddd/relacao-com-o-codigo.md)
-- Vídeo de apresentação:
+- [Vídeo de apresentação](https://youtu.be/g6BHX-S7aUY)
 
 ## Tecnologias
 
